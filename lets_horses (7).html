@@ -1,0 +1,4662 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LET'S HORSES - 競馬シミュレーション</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#05070a;color:#fff;
+  font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;
+  -webkit-font-smoothing:antialiased;user-select:none}
+#cv{display:block;position:absolute;left:0;top:0;width:100%;height:100%}
+
+/* HUD */
+#hud{position:absolute;left:18px;top:12px;z-index:50;pointer-events:none;
+  text-shadow:2px 2px 6px rgba(0,0,0,.9)}
+#timer{font-size:19px;font-weight:bold;letter-spacing:.5px}
+#money{font-size:23px;font-weight:bold;color:#ffd23f;margin-top:1px}
+#raceinfo{font-size:12.5px;color:#b0bec5;margin-top:3px;letter-spacing:.3px}
+#hstats{font-size:12px;color:#8fa8b8;margin-top:5px;line-height:1.55}
+
+/* 出馬表パネル（左側固定） */
+#cardPanel{position:absolute;left:14px;top:12px;width:420px;max-height:calc(100vh - 26px);
+  z-index:40;display:flex;flex-direction:column;
+  background:linear-gradient(165deg,rgba(16,20,26,.97),rgba(5,7,9,.98));
+  border:1px solid rgba(255,255,255,.10);border-radius:14px;
+  box-shadow:0 18px 50px rgba(0,0,0,.8);overflow:hidden}
+#cardBody{overflow-y:auto;padding:12px 14px 14px;font-size:12.5px}
+#cardBody::-webkit-scrollbar{width:7px}
+#cardBody::-webkit-scrollbar-thumb{background:#37474f;border-radius:4px}
+
+/* 馬券パネル（右側固定） */
+#betPanel{position:absolute;right:14px;top:12px;width:380px;max-height:calc(100vh - 26px);
+  z-index:40;display:flex;flex-direction:column;
+  background:linear-gradient(165deg,rgba(16,20,26,.97),rgba(5,7,9,.98));
+  border:1px solid rgba(255,255,255,.10);border-radius:14px;
+  box-shadow:0 18px 50px rgba(0,0,0,.8);overflow:hidden}
+#betBody{overflow-y:auto;padding:12px 14px 14px;font-size:12.5px}
+#betBody::-webkit-scrollbar{width:7px}
+#betBody::-webkit-scrollbar-thumb{background:#37474f;border-radius:4px}
+
+/* フォーメーションUI */
+.form-box{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:6px}
+.form-box div{padding:7px 2px;text-align:center;font-size:11.5px;font-weight:bold;
+  border-radius:7px;background:rgba(255,255,255,.055);border:1.5px solid transparent;
+  cursor:pointer;color:#cbd5e1;transition:.13s}
+.form-box div:hover{background:rgba(255,255,255,.11)}
+.form-box div.on{border-color:#4dd0e1;background:rgba(77,208,225,.18);color:#4dd0e1}
+.form-box div.me{box-shadow:inset 0 0 0 1px rgba(255,210,63,.6)}
+.form-box div.dim{opacity:.35;cursor:not-allowed}
+.form-label{font-size:10px;color:#78909c;margin:8px 0 4px;letter-spacing:.5px;font-weight:bold}
+.form-summary{padding:8px 10px;border-radius:6px;background:rgba(255,255,255,.05);
+  font-size:11px;color:#b0bec5;margin-top:6px;line-height:1.5}
+.form-summary b{color:#ffd23f}/* 実況 */
+#comment{position:absolute;left:18px;bottom:84px;z-index:45;
+  max-width:min(700px,52vw);
+  background:linear-gradient(90deg,rgba(8,14,18,.94),rgba(8,14,18,.55));
+  border-left:4px solid #4dd0e1;border-radius:5px;padding:9px 15px;font-size:13.5px;
+  font-weight:bold;line-height:1.65;letter-spacing:.3px;pointer-events:none;
+  box-shadow:0 6px 20px rgba(0,0,0,.6)}
+#payout{position:absolute;left:18px;bottom:176px;z-index:45;
+  background:rgba(8,14,18,.92);border-left:4px solid #ffd23f;border-radius:5px;
+  padding:8px 14px;font-size:13px;font-weight:bold;color:#ffd23f;line-height:1.6;
+  pointer-events:none;display:none}
+
+/* 順位表 */
+#rank{position:absolute;right:14px;top:12px;z-index:100;width:230px;
+  background:linear-gradient(180deg,rgba(16,21,26,.92),rgba(0,0,0,.92));
+  border-left:3px solid #ff9800;border-radius:7px;padding:10px 12px;font-size:11.5px;
+  line-height:1.6;pointer-events:none;display:none;
+  box-shadow:-4px 4px 18px rgba(0,0,0,.6)}
+#rank .rt{display:flex;justify-content:space-between;gap:5px}
+#rank .rt span:first-child{color:#ffd23f;font-weight:bold}
+
+/* ボタン */
+#btnbar{position:absolute;left:18px;bottom:16px;z-index:60;display:flex;gap:8px}
+button{font-family:inherit;font-weight:bold;cursor:pointer;border:none;
+  border-radius:8px;color:#fff;transition:transform .1s,filter .15s}
+button:active{transform:scale(.96)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.b-orange{background:linear-gradient(135deg,#ff9800,#ef6c00);padding:11px 20px;
+  font-size:15px;box-shadow:0 4px 14px rgba(255,152,0,.35)}
+.b-blue{background:linear-gradient(135deg,#2196f3,#1565c0);padding:9px 15px;font-size:12.5px}
+.b-green{background:linear-gradient(135deg,#4caf50,#2e7d32);padding:9px 15px;font-size:12.5px}
+.b-gray{background:linear-gradient(135deg,#546e7a,#37474f);padding:9px 15px;font-size:12.5px}
+.b-red{background:linear-gradient(135deg,#ef5350,#c62828);padding:9px 15px;font-size:12.5px}
+.b-purple{background:linear-gradient(135deg,#9c27b0,#6a1b9a);padding:9px 15px;font-size:12.5px}
+.b-cyan{background:linear-gradient(135deg,#00acc1,#00838f);padding:9px 15px;font-size:12.5px}
+
+/* モーダル */
+#modal{position:absolute;inset:0;z-index:300;display:none;align-items:center;
+  justify-content:center;background:rgba(2,4,6,.86);backdrop-filter:blur(4px);
+  padding:20px;overflow-y:auto}
+#modal.on{display:flex}
+#mInner{width:min(720px,95vw);max-height:92vh;overflow-y:auto;
+  background:linear-gradient(165deg,rgba(20,25,31,.99),rgba(7,9,12,.99));
+  border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:24px 28px;
+  box-shadow:0 26px 70px rgba(0,0,0,.92)}
+#mInner::-webkit-scrollbar{width:8px}
+#mInner::-webkit-scrollbar-thumb{background:#37474f;border-radius:4px}
+h1{font-size:25px;text-align:center;letter-spacing:2px;margin-bottom:3px;
+  background:linear-gradient(90deg,#ffd23f,#ff9800);-webkit-background-clip:text;
+  background-clip:text;-webkit-text-fill-color:transparent}
+h1.pink{background:linear-gradient(90deg,#f06292,#e91e63);-webkit-background-clip:text;
+  background-clip:text;-webkit-text-fill-color:transparent}
+.tag{text-align:center;color:#8fa4b3;font-size:12px;margin-bottom:18px;letter-spacing:.6px}
+.fld{margin-bottom:14px}
+.fld label{display:block;font-size:12px;color:#8fa4b3;margin-bottom:6px;letter-spacing:.5px}
+.fld input{width:100%;padding:11px 14px;font-size:16px;font-family:inherit;
+  font-weight:bold;background:rgba(255,255,255,.07);
+  border:2px solid rgba(255,255,255,.14);border-radius:9px;color:#fff;
+  outline:none;letter-spacing:2px}
+.fld input:focus{border-color:#ffd23f;background:rgba(255,210,63,.08)}
+.hint{font-size:11px;color:#5c7180;margin-top:5px}
+.err{font-size:11.5px;color:#ef5350;margin-top:5px;min-height:15px}
+.row{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.cands{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:16px}
+.cand{padding:13px;border-radius:12px;cursor:pointer;transition:.15s;
+  background:linear-gradient(135deg,rgba(28,33,39,.9),rgba(12,13,15,.95));
+  border:2px solid rgba(255,255,255,.13)}
+.cand:hover{border-color:rgba(255,255,255,.3)}
+.cand.on{border-color:#ff9800;transform:scale(1.03);
+  box-shadow:0 6px 20px rgba(255,152,0,.3)}
+.cand .t{font-size:13px;font-weight:bold;margin-bottom:6px;color:#fff}
+.cand .s{font-size:11px;color:#9aa8b5;display:flex;justify-content:space-between;
+  margin-top:2px}
+.cand .s b{color:#7ee787}
+.cand .price{font-size:11px;color:#ffd23f;margin-top:6px;font-weight:bold}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
+.sbox{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:10px;text-align:center}
+.sbox .k{font-size:10px;color:#8fa4b3;letter-spacing:.5px}
+.sbox .v{font-size:20px;font-weight:bold;color:#ffd23f;margin-top:3px}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;
+  margin-top:6px}
+.bar i{display:block;height:100%;border-radius:3px;
+  background:linear-gradient(90deg,#ffd23f,#ff9800)}
+.tlist{display:grid;gap:8px}
+.titem{display:flex;justify-content:space-between;align-items:center;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:11px 14px}
+.titem .a{font-weight:bold;font-size:13px}
+.titem .b{font-size:11px;color:#8fa4b3;margin-top:2px}
+.titem button{padding:7px 14px;font-size:12px;border-radius:7px}
+.resrow{display:flex;justify-content:space-between;padding:7px 12px;margin-bottom:4px;
+  border-radius:7px;background:rgba(255,255,255,.045);align-items:center;font-size:12.5px}
+.resrow.w{background:linear-gradient(90deg,rgba(255,210,63,.22),rgba(255,210,63,.04));
+  border:1px solid rgba(255,210,63,.4)}
+.resrow.me{box-shadow:inset 2px 0 0 #ffd23f}
+.resrow .p{font-size:15px;font-weight:bold;width:28px;color:#ffd23f}
+.resrow .n{flex:1;padding-left:4px}
+.resrow .o{font-size:11px;color:#8fa4b3;width:44px;text-align:right}
+.resrow .m{font-size:11px;color:#4dd0e1;width:58px;text-align:right}
+.big{font-size:15px;font-weight:bold;color:#ffd23f;text-align:center;margin-top:12px;
+  line-height:1.7}
+.sub2{text-align:center;font-size:11.5px;color:#8fa4b3;margin-top:8px;line-height:1.6}
+.hide{display:none!important}
+
+.sharebar{grid-column:2 / span 5;display:flex;gap:4px;align-items:center;
+  padding:1px 0 3px 2px;flex-wrap:wrap}
+.sharebar button{background:linear-gradient(135deg,#4caf50,#2e7d32);border:none;
+  color:#fff;font-size:9.5px;font-weight:bold;padding:2px 6px;border-radius:4px;
+  cursor:pointer;font-family:inherit}
+.sharebar button.b10{background:linear-gradient(135deg,#2196f3,#1565c0)}
+.sharebar button:active{transform:scale(.95)}
+.sharebar .sh{font-size:9.5px;color:#ffd23f;font-weight:bold}
+#errbox{position:absolute;left:0;top:0;right:0;z-index:999;background:#b71c1c;
+  color:#fff;font:11px monospace;padding:8px 12px;white-space:pre-wrap;
+  max-height:30vh;overflow:auto;display:none}
+
+  /* フォーメーションUI用スタイル */
+  .form-label { font-size: 11px; color: #8fa4b3; margin: 8px 0 4px; padding-left: 2px; }
+  .form-box { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .form-box > div {
+    width: 32px; height: 32px; border-radius: 6px; border: 1px solid #334155;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    background: #0b1220; color: #e2e8f0; user-select: none;
+    transition: background .15s, border-color .15s;
+  }
+  .form-box > div:hover { background: #162032; border-color: #60a5fa; }
+  .form-box > div.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .form-box > div.me { border-color: #f59e0b; color: #fbbf24; }
+  .form-box > div.dim { opacity: .45; }  /* 別枠で選択中：押すと入れ替え */
+  .form-summary {
+    font-size: 11px; color: #94a3b8; background: #0f172a;
+    border: 1px solid #1e293b; border-radius: 8px; padding: 6px 8px;
+    margin: 6px 0;
+  }
+  .form-summary b { color: #60a5fa; margin-right: 4px; }
+
+  /* 馬券パネル側のスタート／出馬表ボタン */
+  .raceStartRow { display: flex; gap: 8px; margin-bottom: 10px }
+  .raceStart { flex: 1 1 auto; background: #2563eb; border-radius: 9px;
+    padding: 12px 0; font-size: 14px; font-weight: 700; color: #fff; border: none;
+    cursor: pointer }
+  .raceStart:hover { background: #1d4ed8 }
+  .raceStart.sub { flex: 0 0 auto; background: #37474f; padding: 12px 14px;
+    font-size: 13px }
+  .raceStart.sub:hover { background: #455a64 }
+
+/* ============ レイアウト最終調整（左=出馬表 / 右=馬券 の固定2カラム） ============ */
+#cardPanel{top:96px !important;bottom:82px !important;left:14px !important;
+  width:620px !important;max-height:none !important}
+/* 育成・セーブ・ロードは常に出るよう、出馬表の下に確保 */
+/* 育成・セーブ・ロードは、パドック中でも押せるようオーバーレイの上に置く */
+#btnbar{position:absolute;left:18px !important;bottom:16px !important;
+  z-index:255 !important;background:rgba(6,10,14,.55);border-radius:10px;
+  padding:5px 6px;backdrop-filter:blur(3px)}
+#btnbar .b-orange{padding:10px 18px !important;font-size:14px !important}
+#btnbar .b-blue,#btnbar .b-green{padding:9px 14px !important;font-size:12px !important}
+#betPanel{top:96px !important;bottom:16px !important;right:14px !important;
+  width:380px !important;max-height:none !important}
+#cardBody,#betBody{flex:1 1 auto;min-height:0}
+/* 実況・配当・順位はパネルに被らんよう、左右の間だけに収める */
+#comment{left:648px !important;right:404px !important;bottom:18px !important;
+  max-width:none !important;width:auto !important}
+#payout{left:648px !important;right:404px !important;bottom:86px !important;
+  max-width:none !important;width:auto !important}
+#rank{left:648px !important;right:auto !important;top:96px !important;
+  bottom:auto !important;width:230px}
+@media (max-width:1180px){
+  #cardPanel{width:340px !important}
+  #betPanel{width:320px !important}
+  #rank{left:548px !important;width:200px}
+  #comment{left:548px !important;right:344px !important}
+  #payout{left:548px !important;right:344px !important}
+}
+
+/* ============ 競馬新聞ふう出馬表（コンパクト） ============ */
+.np-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  border-bottom:2px solid #ffd23f;padding-bottom:5px;margin-bottom:4px}
+.np-head b{font-size:13.5px;letter-spacing:1.2px;color:#ffd23f;white-space:nowrap}
+.np-head span{font-size:11px;color:#ff9800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-sub{font-size:10.5px;color:#8fa4b3;margin-bottom:6px}
+.np-table{border:1px solid #263238;border-radius:6px;overflow:hidden;
+  font-variant-numeric:tabular-nums}
+.np-row{display:grid;grid-template-columns:20px 20px 24px 1fr 38px 42px 26px 46px 54px;
+  align-items:center;gap:4px;padding:3px 5px;font-size:11.5px;
+  border-bottom:1px solid #1b2429;line-height:1.35}
+.np-row:last-child{border-bottom:none}
+.np-row:nth-child(even){background:rgba(255,255,255,.022)}
+.np-row.mine{background:rgba(255,210,63,.10);box-shadow:inset 3px 0 0 #ffd23f}
+.np-row.np-hd{background:#101a1f;font-size:9.5px;color:#78909c;letter-spacing:.4px;
+  font-weight:700;padding:4px 5px}
+.np-w{text-align:center;font-weight:700;font-size:10.5px;border-radius:3px;line-height:15px}
+.np-num{text-align:center;font-weight:700;color:#ffffff;font-size:12px;
+  background:rgba(255,255,255,.10);border-radius:3px;line-height:15px}
+.np-name{white-space:nowrap;overflow:hidden;font-weight:600}
+.np-name i{font-style:normal;font-size:9.5px;color:#66bb6a;font-weight:400}
+.np-name em{font-style:normal;font-size:9.5px;color:#ffb74d}
+.np-rt{text-align:center;font-size:10px;border-radius:3px;padding:1px 0;font-weight:700}
+.np-cond{text-align:center;font-size:10px;font-weight:700}
+.np-pop{text-align:center;font-size:10.5px;color:#90a4ae}
+.np-odds{text-align:right;font-weight:700;color:#4dd0e1;padding-right:2px}
+.np-buy{font-size:9.5px;padding:3px 0;border-radius:4px;background:#2b3a45;color:#cfd8dc;
+  border:none;cursor:pointer;font-weight:700}
+.np-buy:hover{background:#37474f}
+.np-buy:disabled{opacity:.35;cursor:not-allowed}
+.np-foot{font-size:10.5px;color:#ffb74d;text-align:center;margin-top:7px}
+
+/* 新聞の最終微調整 */
+#cardBody{padding:9px 10px 10px}
+
+/* ============ 馬券パネル（復元） ============ */
+.betsec{margin-bottom:9px}
+.betlabel{font-size:10.5px;color:#8fa4b3;margin-bottom:5px;letter-spacing:.4px;font-weight:700}
+.bettypes{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.bettypes>div{text-align:center;font-size:11px;padding:6px 0;border-radius:5px;
+  background:#16202a;color:#b0bec5;cursor:pointer;border:1px solid #22303c;
+  user-select:none;transition:background .12s}
+.bettypes>div:hover{background:#1e2b36}
+.bettypes>div.on{background:#ffd23f;color:#101418;font-weight:700;border-color:#ffd23f}
+.horsegrid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.horsegrid>div{height:38px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:0;line-height:1.1;
+  border-radius:5px;background:#16202a;border:1px solid #22303c;font-size:12px;
+  font-weight:700;cursor:pointer;color:#e2e8f0;user-select:none;
+  transition:background .12s,border-color .12s}
+.horsegrid>div .hn{font-size:12px;font-weight:700}
+.horsegrid>div .ho{font-size:9px;font-weight:400;color:#4dd0e1;margin-top:1px}
+.horsegrid>div.on .ho{color:#fff}
+.horsegrid>div:hover{background:#1e2b36;border-color:#4dd0e1}
+.horsegrid>div.on{background:#e53935;border-color:#e53935;color:#fff}
+.horsegrid>div.me{border-color:#ffd23f;color:#ffd23f}
+.horsegrid>div.me.on{color:#fff}
+.oddbox{display:flex;justify-content:space-between;align-items:center;
+  background:#101a1f;border:1px solid #22303c;border-radius:6px;
+  padding:7px 10px;font-size:11.5px;margin-top:8px}
+.oddbox b{color:#4dd0e1;font-size:13px}
+.stakes{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.stakes>div{text-align:center;font-size:11px;padding:6px 0;border-radius:5px;
+  background:#16202a;border:1px solid #22303c;cursor:pointer;user-select:none}
+.stakes>div:hover{background:#1e2b36}
+.stakes>div.on{background:#2563eb;border-color:#2563eb;color:#fff;font-weight:700}
+.betbtn{width:100%;margin-top:11px;padding:11px 0;border-radius:8px;
+  background:#43a047;color:#fff;font-size:13.5px;font-weight:700;
+  border:none;cursor:pointer}
+.betbtn:hover:not(:disabled){background:#4caf50}
+.betbtn:disabled{background:#37474f;color:#90a4ae;opacity:.55;cursor:not-allowed}
+.tickets{margin-top:12px;border-top:1px solid #22303c;padding-top:9px}
+.ticket{display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;padding:5px 0;border-bottom:1px solid #1b2429;gap:6px}
+.ticket:last-child{border-bottom:none}
+.ticket .tk{color:#4dd0e1;font-weight:700}
+.empty{font-size:11px;color:#78909c;text-align:center;padding:8px 0}
+.raceState{font-size:11.5px;color:#4dd0e1;font-weight:700;text-align:center;
+  padding:6px 0 8px;letter-spacing:.4px}
+
+/* レース中は実況・順位・配当を画面幅いっぱいに使う */
+body.racing #comment{left:366px !important;right:14px !important;bottom:18px !important;
+  max-width:min(880px,calc(100vw - 392px)) !important}
+body.racing #payout{left:366px !important;right:auto !important;bottom:96px !important;
+  max-width:min(880px,calc(100vw - 392px)) !important}
+body.racing #rank{left:auto !important;right:14px !important;top:12px !important;
+  bottom:auto !important;width:230px}
+
+/* ============ ゴール後の結果フラッシュ ============ */
+#resultFlash{position:absolute;inset:0;z-index:265;display:none;
+  align-items:center;justify-content:center;padding:22px;
+  background:radial-gradient(circle at 50% 28%,rgba(12,20,28,.93),rgba(3,5,8,.975))}
+#resultFlash.on{display:flex}
+#rfInner{width:min(1120px,96vw);max-height:94vh;overflow-y:auto;
+  background:linear-gradient(165deg,rgba(20,26,33,.99),rgba(6,9,12,.99));
+  border:1px solid rgba(255,210,63,.34);border-radius:16px;padding:18px 22px;
+  box-shadow:0 26px 70px rgba(0,0,0,.92)}
+#rfInner::-webkit-scrollbar{width:8px}
+#rfInner::-webkit-scrollbar-thumb{background:#37474f;border-radius:4px}
+.rf-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  border-bottom:2px solid #ffd23f;padding-bottom:7px;margin-bottom:9px}
+.rf-top b{font-size:17px;letter-spacing:1.2px;color:#ffd23f}
+.rf-top span{font-size:12px;color:#ffb74d}
+.rf-cols{display:grid;grid-template-columns:1.32fr 1fr;gap:14px;align-items:start}
+.rf-h{font-size:11px;color:#8fa4b3;font-weight:700;letter-spacing:.6px;margin:0 0 5px}
+.rf-tab{border:1px solid #22303c;border-radius:7px;overflow:hidden;
+  font-variant-numeric:tabular-nums}
+.rf-row{display:grid;grid-template-columns:28px 24px 1fr 30px 54px 58px;
+  align-items:center;gap:4px;padding:3px 6px;font-size:11.5px;
+  border-bottom:1px solid #1b2429}
+.rf-row:last-child{border-bottom:none}
+.rf-row:nth-child(even){background:rgba(255,255,255,.022)}
+.rf-row.me{background:rgba(255,210,63,.12);box-shadow:inset 3px 0 0 #ffd23f}
+.rf-row.hd{background:#101a1f;font-size:9.5px;color:#78909c;font-weight:700;
+  letter-spacing:.4px}
+.rf-p{font-weight:700;text-align:center;color:#ffd23f}
+.rf-n{text-align:center;color:#90a4ae}
+.rf-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.rf-nm em{font-style:normal;font-size:9.5px;color:#8fa4b3;font-weight:400}
+.rf-o{text-align:right;color:#4dd0e1;font-weight:700}
+.rf-m{text-align:right;color:#cfd8dc;font-size:10.5px}
+.rf-t{text-align:right;color:#b0bec5;font-size:10.5px}
+.rf-sum{display:grid;grid-template-columns:1fr auto;gap:3px 10px;font-size:12px;
+  padding:8px 11px;border-radius:8px;background:rgba(255,255,255,.045);
+  margin-top:9px;line-height:1.65}
+.rf-sum .k{color:#9fb3c0}
+.rf-sum .v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.rf-sum .tot{border-top:1px solid rgba(255,255,255,.15);padding-top:6px;margin-top:3px}
+.rf-hit{color:#4dd0e1}
+.rf-miss{color:#78909c}
+.rf-empty{font-size:11px;color:#78909c;text-align:center;padding:10px 0}
+.rf-foot{text-align:center;font-size:10.5px;color:#78909c;margin-top:9px}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="errbox"></div>
+
+<div id="hud">
+  <div id="timer">次のレースまで: 40秒</div>
+  <div id="money">所持金: 2,000 G</div>
+  <div id="raceinfo"></div>
+  <div id="hstats"></div>
+</div>
+
+<div id="cardPanel"><div id="cardBody"></div></div>
+<div id="betPanel"><div id="betBody"></div></div>
+
+
+<div id="comment"></div>
+<div id="payout"></div>
+<div id="rank"></div>
+<div id="resultFlash"><div id="rfInner"></div></div>
+
+<div id="btnbar">
+  <button class="b-orange" id="btnTrain">育成・出走</button>
+  <button class="b-blue" id="btnSave">セーブ</button>
+  <button class="b-green" id="btnLoad">ロード</button>
+</div>
+
+<div id="modal"><div id="mInner"></div></div>
+
+<script>
+
+// ============================================================
+//  LET'S HORSES  -  競馬シミュレーション（Canvas 2D 完全自己完結版）
+//  元仕様（p5版）を忠実に再現 + 馬券制度を追加
+// ============================================================
+'use strict';
+
+// ---- エラー可視化 ----
+window.addEventListener('error', function (ev) {
+  var b = document.getElementById('errbox');
+  if (!b) return;
+  b.style.display = 'block';
+  b.textContent += 'ERR: ' + ev.message + '  @' + (ev.lineno || '?') + '\n';
+});
+
+// ------------------------------------------------------------
+// 1. 定数
+// ------------------------------------------------------------
+const numHorses = 12;
+const trackS1 = 7500;
+const trackR = 3750;
+const trackC1 = Math.PI * trackR;
+const trackS2 = 9000;
+const totalDistance = trackS1 + trackC1 + trackS2;
+const PADDOCK_TIME_LIMIT = 40000;
+
+// タイム表示用
+const GATE_FRAMES = 240;        // ゲートが開くまでのフレーム数
+const SEC_PER_FRAME = 0.045;    // 1フレーム ≒ 0.045秒（実レースのタイムに寄せる）
+const PODIUM_MS   = 6000;       // ウイニングランの長さ
+const FLASH_MS    = 5000;       // 結果を出しておく長さ
+
+const COND_NAMES = ['絶不調', '不調', '普通', '好調', '絶好調'];
+const COND_MULT  = [0.96, 0.98, 1.00, 1.02, 1.04];
+const COND_CLS   = ['c0', 'c1', 'c2', 'c3', 'c4'];
+const RUN_TYPES  = ['逃げ', '先行', '差し', '追込', '大逃げ'];
+const RT_BASE    = ['逃げ', '先行', '差し', '追込'];
+
+const NAME_POOL = {
+  '逃げ': ['マッハエスケープ','エアロゲイル','ソニックブーム','カゼノマイ','ライトニング',
+           'クイックダッシュ','フライングアロー','サイレンスラン','メテオバレット','ロケットスター'],
+  '先行': ['キンググローリー','ロイヤルクラウン','ブレイブハート','グランエース','トップヒーロー',
+           'ノーブルナイト','ソリッドシールド','プラウドスター','シグナルブレイド','ビクトリーマーチ'],
+  '差し': ['シャドウスナイプ','ステルスエッジ','ファントムチェイス','サイレントキラー','ブラックローズ',
+           'ムーンシューター','クレバーアタック','トリックスター','ミラージュステップ','ダークハンター'],
+  '追込': ['イナズマバースト','テンペストロア','メテオストライク','エンドオブプレイン','ゲキジョウハ',
+           'ボルケーノエラ','ストームブリンガー','ファイナルアペンド','ハリケーンフォース','カミカゼアサルト']
+};
+
+const COAT_COLORS = ['#8d5524', '#6b3410', '#3e2723', '#b9b9b9', '#5d4037', '#a1887f', '#4e342e'];
+const SILKS = ['#e53935','#1e88e5','#43a047','#fdd835','#fb8c00','#ec407a',
+               '#00acc1','#8e24aa','#9ccc65','#ef5350','#7986cb','#ffb300'];
+
+// ------------------------------------------------------------
+// 2. 状態
+// ------------------------------------------------------------
+let cv, g, W = 1280, H = 800, DPR = 1;
+
+let horses = [];
+let myMoney = 2000;
+let myHorseData = null;
+let currentRaceIndex = 0;
+let registeredRaces = [];
+let isPlayerEntered = false;
+let ownedShares = {};
+
+let isRegistering = true;
+let isBreeding = false;
+let isTrainingMode = false;
+let isRacing = false;
+let isFinished = false;
+let isReplaying = false;
+let isPodium = false;
+
+let hasTrained = false;
+let lastTrainingResult = '成功';
+let paddockStartTime = 0;
+let raceStartTime = 0;
+let podiumStartTime = 0;
+let resultFlashStart = 0;
+let isResultFlash = false;
+let resultModalShown = false;
+let lastRaceLog = null;
+let frameCount = 0;
+
+let winner = null;
+let top3Horses = [];
+let currentFinishRank = 1;
+let allFinishedTime = 0;
+let prizeAwarded = false;
+let lastPrize = 0;
+let lastPayout = 0;
+
+let gateOpenRatio = 0;
+let replayFrames = [];
+let replayIndex = 0;
+let replayThirdIndex = 0;
+
+let packState = '普通';
+let racePace = '平均ペース';
+let commentaryLog = [];
+let currentPhase = -1;
+
+let initialCandidates = [];
+let selectedCand = 0;
+
+// 馬券
+let betType = '単勝';
+let betPicksByType = {};
+let betStake = 100;
+let tickets = [];
+const BET_TYPES = ['単勝', '複勝', '馬連', '馬単', 'ワイド', '3連複', '3連単'];
+const BET_NEED  = { '単勝': 1, '複勝': 1, '馬連': 2, '馬単': 2, 'ワイド': 2, '3連複': 3, '3連単': 3 };
+const STAKES = [100, 200, 500, 1000, 2000, 5000];
+let panelTab = 'card';
+
+// カメラ
+const cam = { x: 0, y: 320, z: -900, yaw: 0, pitch: 0.2, focal: 950 };
+
+// ------------------------------------------------------------
+// 3. ユーティリティ
+// ------------------------------------------------------------
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function ri(a, b) { return Math.floor(rnd(a, b + 1)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function condMult(c) { const i = COND_NAMES.indexOf(c); return i < 0 ? 1 : COND_MULT[i]; }
+function condIdx(c) { return Math.max(0, COND_NAMES.indexOf(c)); }
+
+function getTrackPos(d, lane) {
+  if (d < trackS1) {
+    return { x: lane, z: d, angle: 0 };
+  } else if (d < trackS1 + trackC1) {
+    const theta = (d - trackS1) / trackR;
+    const r = trackR + lane;
+    return { x: -trackR + r * Math.cos(theta), z: trackS1 + r * Math.sin(theta), angle: theta };
+  } else {
+    const d2 = d - (trackS1 + trackC1);
+    return { x: -2 * trackR - lane, z: trackS1 - d2, angle: Math.PI };
+  }
+}
+
+function project(wx, wy, wz) {
+  const dx = wx - cam.x, dy = wy - cam.y, dz = wz - cam.z;
+  const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  const fx = sy * cp, fy = -sp, fz = cy * cp;
+  const rx = cy, rz = -sy;
+  const ux = sy * sp, uy = cp, uz = cy * sp;
+  const depth = dx * fx + dy * fy + dz * fz;
+  if (depth < 14) return null;
+  const sx = dx * rx + dz * rz;
+  const su = dx * ux + dy * uy + dz * uz;
+  const f = cam.focal / depth;
+  return { x: W * 0.5 + sx * f, y: H * 0.52 - su * f, s: f, d: depth };
+}
+
+function horizonY() {
+  return clamp(H * 0.52 - Math.tan(cam.pitch) * cam.focal, H * 0.05, H * 0.94);
+}
+
+function travelDir(d) {
+  const a = getTrackPos(Math.max(0, d - 60), 0);
+  const b = getTrackPos(Math.min(totalDistance, d + 60), 0);
+  let vx = b.x - a.x, vz = b.z - a.z;
+  const L = Math.hypot(vx, vz) || 1;
+  return { x: vx / L, z: vz / L };
+}
+
+// 元仕様 getMarginText
+function getMarginText(diffFrame) {
+  if (diffFrame <= 0.0001) return '同着';
+  const margin = diffFrame * 0.3;
+  if (margin >= 10) return '大差';
+  let intPart = Math.floor(margin);
+  let frac = margin - intPart;
+  let fracStr = '';
+  if (intPart === 0) {
+    if (margin < 0.3) return 'ハナ';
+    if (margin < 0.6) return 'アタマ';
+    if (margin < 0.85) return 'クビ';
+    return '3/4 馬身';
+  }
+  if (frac < 0.125) fracStr = '';
+  else if (frac < 0.375) fracStr = '1/4';
+  else if (frac < 0.625) fracStr = '1/2';
+  else if (frac < 0.875) fracStr = '3/4';
+  else { intPart++; fracStr = ''; }
+  if (intPart === 0) return fracStr + '馬身';
+  return intPart + (fracStr ? ' ' + fracStr : '') + '馬身';
+}
+
+// 現在のレース情報（未勝利馬は未勝利戦）
+function getRaceInfo() {
+  let info = RACE_CALENDAR[currentRaceIndex % RACE_CALENDAR.length];
+  if (isPlayerEntered && myHorseData && myHorseData.wins === 0) {
+    info = { name: '未勝利戦', grade: '未勝利戦', fee: 100, prize: 1000, mult: 1.0 };
+  }
+  return info;
+}
+const ALL_SKILLS = [
+{ name: "逃亡者", rt: "逃げ", cond: (p, r) => p > 0.6 && p < 0.7 && r === 1, desc: "先頭、ここでさらに後続を突き放しにかかる！", boost: 0.6 },
+{ name: "先陣心得", rt: "逃げ", cond: (p, r) => p > 0.1 && p < 0.2 && r === 1, desc: "ハナを主張！見事なペース配分でレースを引っ張る！", boost: 0.4 },
+{ name: "準備万端", rt: "逃げ", cond: (p, r) => p > 0.7 && p < 0.8, desc: "息を入れて最後の直線へ向かう態勢を整える！", boost: 0.3 },
+{ name: "絶対逃切", rt: "逃げ", cond: (p, r) => p > 0.85 && p < 0.95 && r === 1, desc: "先頭粘る！このまま逃げ切れるか！", boost: 0.5 },
+{ name: "先頭走者", rt: "逃げ", cond: (p, r) => p > 0.4 && p < 0.5 && r === 1, desc: "軽快な逃げ足！淀みないペースで馬群を牽引！", boost: 0.4 },
+{ name: "先手必勝", rt: "逃げ", cond: (p, r) => p > 0.05 && p < 0.1, desc: "好スタートから一気にハナへ立ちます！", boost: 0.5 },
+{ name: "急足前進", rt: "逃げ", cond: (p, r) => p > 0.3 && p < 0.4, desc: "少しペースを上げて後続に脚を使わせる構え！", boost: 0.3 },
+{ name: "盤石布陣", rt: "逃げ", cond: (p, r) => p > 0.02 && p < 0.05, desc: "ゲートを出てすぐさま主導権を握りに行く！", boost: 0.4 },
+{ name: "危険回避", rt: "逃げ", cond: (p, r) => p > 0.15 && p < 0.2, desc: "スムーズに立ち回りポジションを確保しました！", boost: 0.3 },
+{ name: "迅速脱出", rt: "逃げ", cond: (p, r) => p > 0.5 && p < 0.6, desc: "馬群のプレッシャーを嫌ってスッと前へ出る！", boost: 0.5 },
+{ name: "大逃亡劇", rt: "大逃げ", cond: (p, r) => p > 0.6 && p < 0.7, desc: "リードは依然として大きい！一人旅はまだまだ続く！", boost: 0.8 },
+{ name: "絶対孤高", rt: "大逃げ", cond: (p, r) => p > 0.8 && p < 0.9, desc: "圧倒的なリード！後続の影すら踏ませない！", boost: 0.7 },
+{ name: "猛烈発進", rt: "大逃げ", cond: (p, r) => p > 0.05 && p < 0.1, desc: "ゲートから飛び出すような恐ろしいダッシュ力！", boost: 0.6 },
+{ name: "唯我独尊", rt: "大逃げ", cond: (p, r) => p > 0.4 && p < 0.5, desc: "我が道を往く大逃げ！場内がどよめきます！", boost: 0.5 },
+{ name: "幻影追走", rt: "大逃げ", cond: (p, r) => p > 0.9 && p < 0.98, desc: "逃げ足は全く衰えない！このまま決まるのか！", boost: 0.6 },
+{ name: "電光一番", rt: "先行", cond: (p, r) => p > 0.65 && p < 0.75, desc: "コーナーから一気に加速して前を捕まえる構え！", boost: 0.6 },
+{ name: "抜出準備", rt: "先行", cond: (p, r) => p > 0.6 && p < 0.7, desc: "好位からいつでも抜け出せる手応え！", boost: 0.4 },
+{ name: "軽快歩調", rt: "先行", cond: (p, r) => p > 0.4 && p < 0.5, desc: "道中は絶好の手応え！リズム良く進みます！", boost: 0.3 },
+{ name: "正面突破", rt: "先行", cond: (p, r) => p > 0.7 && p < 0.8 && r <= 4, desc: "王道の競馬で堂々と前へプレッシャーをかける！", boost: 0.5 },
+{ name: "強気攻勢", rt: "先行", cond: (p, r) => p > 0.5 && p < 0.6, desc: "中盤から強気に押し上げていく！", boost: 0.4 },
+{ name: "勝利執念", rt: "先行", cond: (p, r) => p > 0.8 && p < 0.9 && r >= 2, desc: "前を行く馬を対に逃さない執念の追い！", boost: 0.6 },
+{ name: "冷静沈着", rt: "先行", cond: (p, r) => p > 0.3 && p < 0.4, desc: "折り合いはピタリ！冷静に展開を見据える！", boost: 0.3 },
+{ name: "巧位置取", rt: "先行", cond: (p, r) => p > 0.2 && p < 0.3, desc: "内ラチ沿いの絶好のポジションを確保！", boost: 0.4 },
+{ name: "決死覚悟", rt: "先行", cond: (p, r) => p > 0.85 && p < 0.95 && r <= 3, desc: "最後の力を振り絞って前との差を詰める！", boost: 0.7 },
+{ name: "不屈闘志", rt: "先行", cond: (p, r) => p > 0.75 && p < 0.85, desc: "激しい競り合いでも決して怯まない！", boost: 0.6 },
+{ name: "外差巧者", rt: "差し", cond: (p, r) => p > 0.65 && p < 0.75 && r >= 4, desc: "勝負所でスムーズに外へ持ち出した！", boost: 0.6 },
+{ name: "昇竜之勢", rt: "差し", cond: (p, r) => p > 0.8 && p < 0.9 && r >= 3, desc: "馬群を縫うように一気に浮上してきた！", boost: 0.7 },
+{ name: "好機到来", rt: "差し", cond: (p, r) => p > 0.4 && p < 0.5, desc: "道中じっくりと脚を溜めて出番を待つ！", boost: 0.4 },
+{ name: "迅速果断", rt: "差し", cond: (p, r) => p > 0.5 && p < 0.6, desc: "機を見て思い切ってポジションを押し上げる！", boost: 0.5 },
+{ name: "差切体勢", rt: "差し", cond: (p, r) => p > 0.7 && p < 0.8, desc: "前を完全に射程圏に捉えて直線へ！", boost: 0.4 },
+{ name: "外差準備", rt: "差し", cond: (p, r) => p > 0.6 && p < 0.7, desc: "大外強襲へ向けてエンジンをふかす！", boost: 0.3 },
+{ name: "豪脚一閃", rt: "差し", cond: (p, r) => p > 0.85 && p < 0.95 && r >= 2, desc: "素晴らしい末脚が炸裂！一気に前を飲み込むか！", boost: 0.8 },
+{ name: "一気呵成", rt: "差し", cond: (p, r) => p > 0.9 && p < 0.98 && r >= 2, desc: "一瞬の隙を突いて鋭く抜け出す！", boost: 0.6 },
+{ name: "大局観望", rt: "差し", cond: (p, r) => p > 0.3 && p < 0.4, desc: "展開を読み切って馬群の中で息を潜める！", boost: 0.3 },
+{ name: "虎視眈々", rt: "差し", cond: (p, r) => p > 0.2 && p < 0.3, desc: "後方から前団の動きをじっくりと窺う！", boost: 0.3 },
+{ name: "迫撃之影", rt: "追込", cond: (p, r) => p > 0.75 && p < 0.85, desc: "後方から一気に強襲！大外から飛んできた！", boost: 0.8 },
+{ name: "直線一気", rt: "追込", cond: (p, r) => p > 0.8 && p < 0.9, desc: "直線だけで全馬をごぼう抜きにする勢い！", boost: 0.7 },
+{ name: "全身全霊", rt: "追込", cond: (p, r) => p > 0.85 && p < 0.95, desc: "全身全霊のラストスパート！怒涛の追い込み", boost: 0.8 },
+{ name: "怒涛追上", rt: "追込", cond: (p, r) => p > 0.65 && p < 0.75, desc: "後方待機からついにエンジンに火がついた！", boost: 0.6 },
+{ name: "後方待機", rt: "追込", cond: (p, r) => p > 0.2 && p < 0.3, desc: "最後方でじっくりと末脚を温存しています！", boost: 0.3 },
+{ name: "余力十分", rt: "追込", cond: (p, r) => p > 0.5 && p < 0.6, desc: "たっぷりと脚を残したまま徐々に進出を開始！", boost: 0.4 },
+{ name: "電光石火", rt: "追込", cond: (p, r) => p > 0.9 && p < 0.98, desc: "稲妻のような凄まじい末脚！前を捕まえる！", boost: 0.9 },
+{ name: "疾風迅雷", rt: "追込", cond: (p, r) => p > 0.7 && p < 0.8, desc: "風を引き裂くようなスパートでコーナーを回る！", boost: 0.6 },
+{ name: "限界突破", rt: "追込", cond: (p, r) => p > 0.95 && p < 0.99, desc: "限界を超えた脚！まだ伸びる！まだ伸びるぞ！", boost: 1.0 },
+{ name: "鬼神末脚", rt: "追込", cond: (p, r) => p > 0.85 && p < 0.95 && r >= 3, desc: "鬼のような末脚！！前を行く馬に襲い掛かる！", boost: 0.8 },
+{ name: "弧線旋回", rt: "全", cond: (p, r) => p > 0.55 && p < 0.65, desc: "見事なコーナリングで無駄なく立ち回る！", boost: 0.5 },
+{ name: "一陣之風", rt: "全", cond: (p, r) => p > 0.75 && p < 0.85, desc: "直線に入って一気にギアを上げました！", boost: 0.5 },
+{ name: "疾風怒濤", rt: "全", cond: (p, r) => p > 0.8 && p < 0.9, desc: "馬群の中から鋭く抜け出しを図る！", boost: 0.5 },
+{ name: "神速之脚", rt: "全", cond: (p, r) => p > 0.85 && p < 0.95 && r <= 5, desc: "次元の違う脚を見せる！！", boost: 0.7 },
+{ name: "負勝根性", rt: "全", cond: (p, r) => p > 0.7 && p < 0.9, desc: "並ばれてから持ち前の根性を発揮する！", boost: 0.5 }
+];
+
+const RACE_CALENDAR = [
+{ name: "中山金杯", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "シンザン記念", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "京成杯", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "AJCC", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "根岸 S", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "シルクロード S", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "東京新聞杯", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "中山記念", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "オーシャン S", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "弥生賞", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "ファルコン S", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "スプリング S", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "毎日杯", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "ダービー卿 CT", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "桜花賞", grade: "G1", fee: 500, prize: 12000, mult: 1.20 },
+{ name: "皐月賞", grade: "G1", fee: 500, prize: 12000, mult: 1.20 },
+{ name: "アーリントン C", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "フローラ S", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "青葉賞", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "天皇賞(春)", grade: "G1", fee: 500, prize: 15000, mult: 1.25 },
+{ name: "新潟大賞典", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "平安 S", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "オークス", grade: "G1", fee: 500, prize: 12000, mult: 1.20 },
+{ name: "日本ダービー", grade: "G1", fee: 500, prize: 20000, mult: 1.30 },
+{ name: "目黒記念", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "鳴尾記念", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "エプソム C", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "函館スプリント S", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "宝塚記念", grade: "G1", fee: 500, prize: 15000, mult: 1.25 },
+{ name: "七夕賞", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "函館記念", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "関屋記念", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "札幌記念", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "新潟記念", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "セントウル S", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "京成杯 AH", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "オールカマー", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "シリウス S", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "毎日王冠", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "秋華賞", grade: "G1", fee: 500, prize: 12000, mult: 1.20 },
+{ name: "菊花賞", grade: "G1", fee: 500, prize: 12000, mult: 1.20 },
+{ name: "天皇賞(秋)", grade: "G1", fee: 500, prize: 15000, mult: 1.25 },
+{ name: "みやこ S", grade: "G3", fee: 150, prize: 2000, mult: 1.05 },
+{ name: "アルゼンチン共和国杯", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "ジャパンカップ", grade: "G1", fee: 500, prize: 20000, mult: 1.30 },
+{ name: "ステイヤーズ S", grade: "G2", fee: 200, prize: 4000, mult: 1.10 },
+{ name: "有馬記念", grade: "G1", fee: 500, prize: 20000, mult: 1.30 }
+];
+
+
+// ------------------------------------------------------------
+// 4. 馬の生成（元仕様を忠実に再現）
+// ------------------------------------------------------------
+function generateCandidate(baseMultiplier) {
+  baseMultiplier = baseMultiplier || 1.0;
+  const runTypes = ['逃げ', '先行', '差し', '追込'];
+  return {
+    baseSpeed:  rnd(8.5, 9.5) * baseMultiplier,
+    spurtPower: rnd(1.3, 1.8) * baseMultiplier,
+    guts:       rnd(8.5, 11.0) * baseMultiplier,
+    runType:    pick(runTypes),
+    coat:       pick(COAT_COLORS),
+    silk:       pick(SILKS),
+    trainingCount: 0,
+    peak:       ri(12, 22)
+  };
+}
+
+function resetRace() {
+  horses = [];
+  const usedNames = [];
+  packState = pick(['縦長', '横長', '普通']);
+  racePace  = pick(['ハイペース', '平均ペース', 'スローペース']);
+
+  const raceInfo = getRaceInfo();
+  const gradeMult = raceInfo.mult;
+
+  // --- 未勝利戦なら相手も弱めに ---
+  const totalNPC = isPlayerEntered ? numHorses - 1 : numHorses;
+
+  // 脚質の割り振り（元仕様：逃げ先行差し追込の巡回 + 70%で大逃げ1頭）
+  const baseRunTypes = [];
+  for (let i = 0; i < totalNPC; i++) baseRunTypes.push(RT_BASE[i % 4]);
+  if (Math.random() < 0.7) {
+    baseRunTypes[ri(0, totalNPC - 1)] = '大逃げ';
+  }
+
+  // マッチレース（5%）／モンスター（10%）
+  const isMatchRace = Math.random() < 0.05;
+  let match1 = -1, match2 = -1, monsterIndex = -1;
+  if (isMatchRace && totalNPC >= 2) {
+    match1 = ri(0, totalNPC - 1);
+    do { match2 = ri(0, totalNPC - 1); } while (match2 === match1);
+    baseRunTypes[match1] = '逃げ';
+    baseRunTypes[match2] = '逃げ';
+  } else {
+    monsterIndex = Math.random() < 0.10 ? ri(0, totalNPC - 1) : -1;
+  }
+
+  // --- NPC 生成 ---
+  const npcHorses = [];
+  for (let i = 0; i < totalNPC; i++) {
+    const rType = baseRunTypes[i];
+    let spurtP;
+    let eType = '通常';
+    if (rType === '大逃げ')      { spurtP = rnd(1.20, 1.40); eType = pick(['大', '中']); }
+    else if (rType === '逃げ')   spurtP = rnd(1.40, 1.55);
+    else if (rType === '先行')   spurtP = rnd(1.50, 1.65);
+    else if (rType === '差し')   spurtP = rnd(1.60, 1.75);
+    else                          spurtP = rnd(1.70, 1.85);
+
+    const isMatch = (i === match1 || i === match2);
+    const isMonster = (i === monsterIndex) || isMatch;
+
+    // 名前は脚質別プールから（重複回避）
+    const pool = NAME_POOL[rType] || NAME_POOL['先行'];
+    let avail = pool.filter(function (n) { return usedNames.indexOf(n) < 0; });
+    if (avail.length === 0) avail = pool;
+    const horseName = pick(avail);
+    usedNames.push(horseName);
+
+    // 能力値（元仕様どおり）
+    let speedVal = isMatch ? rnd(9.3, 9.5) : rnd(8.7, 9.3);
+    let spurtVal = (isMonster ? spurtP * 1.5 : spurtP * rnd(0.85, 1.15)) * (isMatch ? 1.6 : 1.5);
+    const gutsDiff = isMonster ? rnd(1.0, 2.5) : rnd(-2.5, 1.5);
+    let gutsVal = speedVal + gutsDiff;
+
+    const condition = pick(COND_NAMES);
+    const m = condMult(condition);
+
+    // 未勝利戦は相手を下方補正（新馬が勝てるように）
+    const maidenAdj = (raceInfo.grade === '未勝利戦') ? 0.92 : 1.0;
+
+    speedVal *= m * gradeMult * maidenAdj;
+    spurtVal *= m * gradeMult * maidenAdj;
+    gutsVal  *= m * gradeMult * maidenAdj;
+
+    if (Math.abs(speedVal - gutsVal) > 2.5) {
+      gutsVal = (gutsVal > speedVal) ? speedVal + 2.5 : speedVal - 2.5;
+    }
+
+    npcHorses.push({
+      name: horseName,
+      baseSpeed: speedVal,
+      spurtPower: spurtVal,
+      guts: gutsVal,
+      condition: condition,
+      runType: rType,
+      escapeType: eType,
+      isMonster: isMonster,
+      isMatch: isMatch,
+      coat: pick(COAT_COLORS),
+      silk: pick(SILKS),
+      isMyHorse: false
+    });
+  }
+
+  // --- 自分の馬 ---
+  if (isPlayerEntered && myHorseData) {
+    const m = condMult(myHorseData.condition);
+    horses.push({
+      name: myHorseData.name,
+      baseSpeed: myHorseData.baseSpeed * m,
+      spurtPower: myHorseData.spurtPower * m,
+      guts: myHorseData.guts * m,
+      condition: myHorseData.condition,
+      runType: myHorseData.runType,
+      escapeType: '通常',
+      isMonster: false,
+      isMatch: false,
+      coat: myHorseData.coat,
+      silk: myHorseData.silk,
+      isMyHorse: true
+    });
+  }
+  horses = horses.concat(npcHorses);
+
+  // --- 個体セットアップ ---
+  for (let i = 0; i < horses.length; i++) {
+    const h = horses[i];
+    h.id = i + 1;
+    h.laneOffset = -160 + (320 / (numHorses - 1)) * i;
+    h.d = -10;
+    h.speed = 0;
+    h.legAngle = rnd(0, Math.PI * 2);
+    h.finishRank = 0;
+    h.finishFrame = 0;
+    h.popularity = 0;
+    h.odds = 0;
+    h.lateStartDelay = 0;
+    h.isLateStart = false;
+    h.whipTimer = 0;
+    h.whipBoost = 0;
+    h.whipCooldown = 0;
+    h.dustTimer = 0;
+    h.skillTimer = 0;
+    h.skillBoost = 0;
+    h.isParticipating = true;
+    h.abilityScore = (h.baseSpeed * 2.0) + (h.spurtPower * 1.5) + ((h.guts / 9.0) * 1.0);
+    h.abilityScore *= rnd(0.95, 1.05);
+    // --- スタミナシステム ---
+    h.stamina = h.guts * 12;          // レース中の残スタミナ
+    h.maxStamina = h.stamina;
+    h.spurtTriggered = false;         // 逆算仕掛け済みフラグ
+
+    // スキル（元仕様：脚質一致 or 全 から1つ）
+    if (h.isMyHorse && myHorseData) {
+      if (!myHorseData.skills || myHorseData.skills.length === 0) {
+        myHorseData.skills = [makeSkill(h.runType)];
+      }
+      h.skills = myHorseData.skills.map(function (s) {
+        const orig = ALL_SKILLS.find(function (x) { return x.name === s.name; });
+        return { name: s.name, desc: s.desc, boost: s.boost, cond: orig ? orig.cond : function () { return false; }, used: false };
+      });
+    } else {
+      h.skills = [makeSkill(h.runType)];
+    }
+  }
+
+  // --- 出遅れ（5%） ---
+  if (Math.random() < 0.05) {
+    const idx = ri(0, horses.length - 1);
+    horses[idx].lateStartDelay = ri(30, 80);
+    horses[idx].isLateStart = true;
+    horses[idx].guts *= 0.9;
+  }
+
+  // --- オッズ（能力スコア → 勝率 → 単勝オッズ。馬券オッズもこの勝率から作る） ---
+  const sortedByAbility = horses.slice().sort(function (a, b) { return b.abilityScore - a.abilityScore; });
+  const nOdds = sortedByAbility.length;
+  let meanAb = 0;
+  sortedByAbility.forEach(function (h) { meanAb += h.abilityScore; });
+  meanAb /= nOdds;
+  let varAb = 0;
+  sortedByAbility.forEach(function (h) {
+    const dv = h.abilityScore - meanAb;
+    varAb += dv * dv;
+  });
+  const sdAb = Math.sqrt(varAb / nOdds) || 1;
+  const K_ODDS  = 1.15;    // 能力差が勝率に効く強さ
+  const P_FLOOR = 0.008;   // 最低勝率（＝最大オッズ約100倍）
+
+  let rawW = sortedByAbility.map(function (h) {
+    return Math.exp(K_ODDS * ((h.abilityScore - meanAb) / sdAb));
+  });
+  let sumRaw = rawW.reduce(function (a, b) { return a + b; }, 0) || 1;
+  let pList = rawW.map(function (x) { return Math.max(P_FLOOR, x / sumRaw); });
+  const sumP = pList.reduce(function (a, b) { return a + b; }, 0) || 1;
+  pList = pList.map(function (x) { return x / sumP; });
+
+  for (let i = 0; i < nOdds; i++) {
+    const h = sortedByAbility[i];
+    h.popularity = i + 1;
+    h.winProb = pList[i];
+    // 単勝控除率20% → オッズ = 0.8 / 勝率
+    const o = 0.8 / h.winProb;
+    h.odds = Math.max(1.1, o < 10 ? Math.round(o * 10) / 10 : Math.round(o));
+    // 下限1.1で丸めた分のズレを吸収
+    h.winProb = Math.min(0.99, 0.8 / h.odds);
+  }
+  horses.forEach(function (h) { h.oddsStr = h.odds.toFixed(1); });
+
+  // --- レース状態リセット ---
+  isRacing = false;
+  isFinished = false;
+  isReplaying = false;
+  isPodium = false;
+  winner = null;
+  frameCount = 0;
+  raceStartTime = 0;
+  currentFinishRank = 1;
+  gateOpenRatio = 0;
+  replayFrames = [];
+  replayIndex = 0;
+  replayThirdIndex = 0;
+  allFinishedTime = 0;
+  podiumStartTime = 0;
+  top3Horses = [];
+  prizeAwarded = false;
+  ownedShares = {};
+  tickets = [];
+  betPicksByType = {};
+  lastPayout = 0;
+  lastPrize = 0;
+  currentPhase = -1;
+  isResultFlash = false;
+  resultFlashStart = 0;
+  resultModalShown = false;
+  resetCameraState();
+  const rf = el('resultFlash');
+  if (rf) rf.classList.remove('on');
+
+  if (!isRegistering && !isBreeding) {
+    commentaryLog = ['各馬ゲートイン完了。出馬表を確認してスタートしてください。'];
+    el('comment').innerHTML = commentaryLog.join('<br>');
+    hasTrained = false;
+    paddockStartTime = performance.now();
+    isTrainingMode = false;
+    panelsHidden = false;  // 左パネルを必ず表示
+    // パドックオーバーレイは updatePanel() → syncPanels() の連鎖で
+    // 毎回開き直されるバグを防ぐため、ここでは開かない。
+    // 出馬表は左パネル（cardPanel）で常に見えるようにするで。
+    updatePanel();
+    updateHUD();
+  }
+}
+
+function makeSkill(runType) {
+  const avail = ALL_SKILLS.filter(function (s) { return s.rt === runType || s.rt === '全'; });
+  const pool = avail.length ? avail : ALL_SKILLS;
+  const s = pick(pool);
+  return { name: s.name, desc: s.desc, boost: s.boost, cond: s.cond, used: false };
+}
+
+// ------------------------------------------------------------
+// 5. レースロジック（元仕様の物理を忠実に移植）
+// ------------------------------------------------------------
+function sortHorses() {
+  const act = horses.filter(function (h) { return h.isParticipating; });
+  return act.slice().sort(function (a, b) {
+    if (a.finishRank > 0 && b.finishRank > 0) return a.finishRank - b.finishRank;
+    if (a.finishRank > 0) return -1;
+    if (b.finishRank > 0) return 1;
+    return b.d - a.d;
+  });
+}
+
+function startRaceByTimer() {
+  el('payout').style.display = 'none';
+  isTrainingMode = false;
+  isRacing = true;
+  raceStartTime = frameCount;
+}
+
+function updateRace() {
+  const activeHorses = horses.filter(function (h) { return h.isParticipating; });
+  const sortedHorses = sortHorses();
+  if (sortedHorses.length === 0) return;
+
+  const leadHorse = sortedHorses[0];
+  const raceActive = isRacing && (frameCount - raceStartTime >= 240);
+  const packLeader = sortedHorses.find(function (s) { return s.runType !== '大逃げ'; }) || leadHorse;
+
+  // リプレイ記録
+  if ((isRacing || isFinished) && !isReplaying && !isPodium && !isResultFlash) {
+    if (frameCount % 2 === 0) {
+      replayFrames.push(horses.map(function (h) {
+        return { d: h.d, laneOffset: h.laneOffset, legAngle: h.legAngle, stamina: h.stamina };
+      }));
+    }
+  }
+
+  // ゲート開閉
+  if (raceActive && gateOpenRatio < 1.0) gateOpenRatio += 0.05;
+
+  for (let i = 0; i < horses.length; i++) {
+    const h = horses[i];
+    if (!h.isParticipating) continue;
+    if (isPodium) continue;
+
+    if (!isReplaying) {
+      if (raceActive && h.d < totalDistance) {
+        const progress = h.d / totalDistance;
+        const isStraight = progress > 0.65;
+        let targetSpeed = h.baseSpeed;
+        const rank = sortedHorses.indexOf(h) + 1;
+
+        // --- スキル判定 ---
+        for (const s of h.skills) {
+          if (!s.used && s.cond(progress, rank)) {
+            s.used = true;
+            h.skillTimer = 360;
+            h.skillBoost = s.boost;
+            pushCommentary('★ ' + h.name + '、' + s.desc);
+            h.dustTimer = 60;
+          }
+        }
+
+        if (!isStraight) {
+          // --- 道中：隊列と脚質で位置調整 ---
+          if (h.runType === '大逃げ') {
+            const distToPackLead = packLeader.d - h.d;
+            const idealDist = -300;
+            if (distToPackLead > idealDist + 10) targetSpeed += 1.5;
+            else if (distToPackLead < idealDist - 10) targetSpeed -= 0.6;
+          } else {
+            const distToPackLead = packLeader.d - h.d;
+            const gap = packState === '縦長' ? 14 : (packState === '横長' ? 6 : 10);
+            const idealDist = h.runType === '逃げ' ? 0
+                            : h.runType === '先行' ? gap
+                            : h.runType === '差し' ? gap * 2.2
+                            : gap * 3.2;
+            if (distToPackLead > idealDist + 10) targetSpeed += 1.2;
+            else if (distToPackLead < idealDist - 10) targetSpeed -= 1.0;
+          }
+        } else {
+          // --- 直線：スパート力 × スタミナ ---
+          const packBuff = (h.runType === '差し' || h.runType === '追込') ? 0.05 : -0.02;
+          const effectiveGuts = h.guts / 9.0;
+          targetSpeed += (h.spurtPower + packBuff) * effectiveGuts;
+
+          if (h.runType === '大逃げ' && !h.isMonster) {
+            targetSpeed -= (h.escapeType === '大' ? 0.9 : 0.4);
+          }
+          const distToAbsoluteLead = leadHorse.d - h.d;
+          if (progress > 0.85 && distToAbsoluteLead > 100 && !h.isMonster) {
+            targetSpeed += 0.8;
+          }
+        }
+
+        // --- 進路取り ---
+        if (isStraight && h.runType !== '逃げ' && h.runType !== '大逃げ') {
+          const targetLane = -200 + (h.id * 10);
+          if (h.laneOffset < targetLane) h.laneOffset += 0.167;
+          else if (h.laneOffset > targetLane) h.laneOffset -= 0.167;
+        } else if (!isStraight && h.laneOffset > -220) {
+          h.laneOffset -= 0.267;
+        }
+
+        // --- 前方の馬との接触回避 ---
+        for (let j = 0; j < horses.length; j++) {
+          if (i === j) continue;
+          const o = horses[j];
+          if (!o.isParticipating) continue;
+          const distD = o.d - h.d;
+          const distLane = o.laneOffset - h.laneOffset;
+          if (distD > 0 && distD < 70 && Math.abs(distLane) < 20) {
+            h.speed *= 0.98;
+            h.laneOffset += (distLane > 0 ? -1 : 1);
+          }
+        }
+
+        // --- 直線のムチ ---
+        if (isStraight) {
+          if (h.whipCooldown > 0) {
+            h.whipCooldown--;
+          } else if (Math.random() < 0.03 && h.whipTimer <= 0) {
+            h.whipTimer = 15;
+            h.whipBoost = rnd(0.1, 0.4);
+            h.dustTimer = 60 + Math.floor((h.whipBoost - 0.1) / 0.3 * 60);
+            h.whipCooldown = h.whipTimer + 60 + ri(0, 120);
+          }
+          if (h.whipTimer > 0) {
+            targetSpeed += h.whipBoost;
+            h.whipTimer--;
+          }
+
+          // --- 差が開きすぎない制御（大逃げ有無で馬群長さを変える） ---
+          if (progress > 0.6) {
+            const hasOonige = sortedHorses.some(function (sh) { return sh.runType === '大逃げ'; });
+            const secondH = sortedHorses.length > 1 ? sortedHorses[1] : sortedHorses[0];
+            const lastH = sortedHorses[sortedHorses.length - 1];
+            const gentle = 0.0006;
+            // 大逃げがいる場合は最終コーナーまで15馬身（≒270）、いない場合は12馬身（≒216）
+            const limitDist = (hasOonige && !isStraight) ? 270 : 216;
+            if (h === leadHorse) {
+              if (h.d - lastH.d > limitDist) targetSpeed -= (h.d - lastH.d - limitDist) * gentle;
+            } else {
+              if (leadHorse.d - h.d > limitDist) targetSpeed += (leadHorse.d - h.d - limitDist) * gentle;
+            }
+          }
+          targetSpeed += rnd(-0.02, 0.02);
+        }
+
+        // --- スキル効果 ---
+        if (h.skillTimer > 0) { targetSpeed += h.skillBoost; h.skillTimer--; }
+        if (h.dustTimer > 0) h.dustTimer--;
+        if (h.lateStartDelay > 0) { targetSpeed *= 0.1; h.lateStartDelay--; }
+
+        // --- 速度更新（元仕様のイージング） ---
+        h.speed += (targetSpeed - h.speed) * 0.1;
+        h.laneOffset = clamp(h.laneOffset, -230, 230);
+        h.speed = clamp(h.speed, 4.5, h.isMonster ? 15.75 : 14.25);
+
+        // --- 脚質別スタミナ係数（逃げは効率よく使える） ---
+        const staminaEff = h.runType === '逃げ' ? 0.65
+                         : h.runType === '先行' ? 0.80
+                         : h.runType === '差し' ? 1.05
+                         : 1.15;  // 追込・大逃げ
+        const staminaCost = ((h.speed * h.speed * 0.0025) + (h.baseSpeed * 0.008)) * staminaEff;
+        h.stamina -= staminaCost;
+        if (h.stamina < 0) h.stamina = 0;
+
+        // --- 逆算：スタミナ余裕がある馬は直線前から仕掛ける ---
+        const distToStraight = (trackS1 + trackC1) - h.d;
+        const distToGoal = totalDistance - h.d;
+        if (!h.spurtTriggered && distToStraight > 0 && distToStraight < 3600 && distToGoal > 500) {
+          const estFrames = distToGoal / Math.max(4, h.speed * 0.6);
+          const needStamina = ((h.speed * h.speed * 0.0025) + (h.baseSpeed * 0.008)) * staminaEff * estFrames;
+          const margin = h.stamina - needStamina;
+          if (margin > 0) {
+            // 脚質別ボーナス（逃げ・先行は早めに強く仕掛ける）
+            const spurtCap = h.runType === '逃げ' ? 1.2
+                           : h.runType === '先行' ? 1.0
+                           : h.runType === '差し' ? 0.75
+                           : 0.60;
+            const spurtBonus = Math.min(spurtCap, margin * 0.030);
+            targetSpeed += spurtBonus;
+            h.spurtTriggered = true;
+          }
+        }
+
+        // --- スタミナ切れで失速（脚質別ペナルティ） ---
+        if (h.stamina <= 0) {
+          const fadeRate = h.runType === '逃げ' ? 0.72
+                         : h.runType === '先行' ? 0.62
+                         : h.runType === '差し' ? 0.50
+                         : 0.42;  // 追込・大逃げは失速が激しい
+          targetSpeed *= fadeRate;
+        }
+
+        let actualDist = h.speed * 0.6;   // 速度半分
+        if (h.d >= trackS1 && h.d < trackS1 + trackC1) {
+          const innerR = trackR - 200;
+          const myR = trackR + h.laneOffset;
+          actualDist *= (innerR / myR);
+        }
+        h.d += actualDist;
+        h.legAngle += h.speed * 0.0333;
+
+      } else if ((isRacing || isFinished) && h.d >= totalDistance) {
+        // --- ゴール後 ---
+        if (h.finishRank === 0) {
+          h.finishRank = currentFinishRank++;
+          const overDist = h.d - totalDistance;
+          h.finishFrame = frameCount - (overDist / (h.speed * 1.2));
+          // ゴールタイム（ゲートが開いてからゴールまで）
+          const runFrames = Math.max(1, h.finishFrame - raceStartTime - GATE_FRAMES);
+          h.finishTime = runFrames * SEC_PER_FRAME;
+        }
+        h.speed *= rnd(0.985, 0.995);
+        h.d += h.speed * 0.6;
+        h.legAngle += h.speed * 0.0333;
+        if (winner === null) { winner = h; isFinished = true; }
+      }
+    }
+  }
+
+  // --- 全馬ゴール → リプレイへ ---
+  if (isFinished && currentFinishRank > activeHorses.length && !isReplaying && !isPodium && !isResultFlash) {
+    allFinishedTime++;
+    if (allFinishedTime > 60) {
+      isReplaying = true;
+      top3Horses = sortedHorses.slice(0, 3);
+      const origIdx1 = horses.indexOf(top3Horses[0]);
+      const origIdx3 = horses.indexOf(top3Horses[2]);
+      let firstIdx = replayFrames.length - 1;
+      let thirdIdx = replayFrames.length - 1;
+      for (let i = 0; i < replayFrames.length; i++) {
+        if (firstIdx === replayFrames.length - 1 && replayFrames[i][origIdx1] &&
+            replayFrames[i][origIdx1].d >= totalDistance) firstIdx = i;
+        if (thirdIdx === replayFrames.length - 1 && replayFrames[i][origIdx3] &&
+            replayFrames[i][origIdx3].d >= totalDistance) thirdIdx = i;
+      }
+      replayIndex = Math.max(0, firstIdx - 15);
+      replayThirdIndex = thirdIdx;
+    }
+  }
+
+  // --- リプレイ再生 ---
+  if (isReplaying) {
+    const i1 = Math.floor(replayIndex);
+    const i2 = Math.min(i1 + 1, replayFrames.length - 1);
+    const t = replayIndex - i1;
+    if (replayFrames[i1] && replayFrames[i2]) {
+      for (let i = 0; i < horses.length; i++) {
+        if (!horses[i].isParticipating) continue;
+        if (!replayFrames[i1][i] || !replayFrames[i2][i]) continue;
+        horses[i].d = lerp(replayFrames[i1][i].d, replayFrames[i2][i].d, t);
+        horses[i].laneOffset = lerp(replayFrames[i1][i].laneOffset, replayFrames[i2][i].laneOffset, t);
+        horses[i].legAngle = lerp(replayFrames[i1][i].legAngle, replayFrames[i2][i].legAngle, t);
+        if (replayFrames[i1][i].stamina !== undefined) {
+          horses[i].stamina = lerp(replayFrames[i1][i].stamina, replayFrames[i2][i].stamina, t);
+        }
+      }
+    }
+    replayIndex += (replayIndex < replayThirdIndex + 15) ? 0.1 : 0.2;
+    if (replayIndex >= replayFrames.length - 1) {
+      isReplaying = false;
+      isPodium = true;
+      allFinishedTime = 0;
+      podiumStartTime = performance.now();
+      if (top3Horses[0]) {
+        commentaryLog = ['★ 見事な勝利！ ' + top3Horses[0].name + 'のウイニングランです！ ' +
+          (top3Horses[1] ? '2着に' + top3Horses[1].name + '、' : '') +
+          (top3Horses[2] ? '3着は' + top3Horses[2].name + 'が入りました。' : '')];
+        el('comment').innerHTML = commentaryLog.join('<br>');
+        top3Horses[0].d = totalDistance + 100;
+        top3Horses[0].laneOffset = 0;
+      }
+    }
+  }
+
+  // --- 表彰式のウイニングラン ---
+  if (isPodium && winner) {
+    winner.speed = 5.5;
+    winner.d += winner.speed * 0.6;
+    winner.legAngle += winner.speed * 0.0333;
+    if (!prizeAwarded) settlePrize(sortedHorses);
+    if (performance.now() - podiumStartTime > PODIUM_MS) {
+      isPodium = false;
+      showResultFlash();     // ウイニングランのあと、結果を5秒出す
+    }
+    return;
+  }
+
+  // --- 結果表示（5秒で次のレースへ） ---
+  if (isResultFlash) {
+    const left = FLASH_MS - (performance.now() - resultFlashStart);
+    const cd = el('rfCount');
+    if (cd) {
+      cd.textContent = left > 0
+        ? 'あと ' + Math.ceil(left / 1000) + ' 秒で次のレースへ'
+        : '次のレースへ移ります…';
+    }
+    if (left <= 0) proceedToNextRace();
+  }
+}
+
+// ------------------------------------------------------------
+// 6. 実況（元仕様のフェーズ演出を再現）
+// ------------------------------------------------------------
+function pushCommentary(msg) {
+  commentaryLog.push(msg);
+  if (commentaryLog.length > 2) commentaryLog.shift();
+  el('comment').innerHTML = commentaryLog.join('<br>');
+}
+
+function setPhase(np, msg) {
+  if (np !== currentPhase && msg !== '') {
+    currentPhase = np;
+    pushCommentary(msg);
+  }
+}
+
+function updateCommentary() {
+  const activeHorses = horses.filter(function (h) { return h.isParticipating; });
+  const sortedHorses = sortHorses();
+  if (sortedHorses.length === 0) return;
+  const leadHorse = sortedHorses[0];
+  const raceActive = isRacing && (frameCount - raceStartTime >= 240);
+
+  if (isFinished && currentPhase !== 99 && winner) {
+    const diff = sortedHorses[0].d - sortedHorses[1].d;
+    const isUpset = winner.popularity >= 8 || winner.odds >= 30.0;
+    const isFav = winner.popularity === 1;
+    let msg;
+    if (diff > 120) {
+      if (isUpset) msg = pick(['大波乱！！ ' + winner.name + 'が大差をつけて圧勝！ 場内騒然！',
+        '信じられない光景！ 大穴' + winner.name + 'が大差勝ち！']);
+      else if (isFav) msg = pick(['圧倒的な強さ！！ 1番人気' + winner.name + 'が大差勝ち！',
+        winner.name + '、歴史に残る大差勝ちです！！']);
+      else msg = pick(['決着！！ ' + winner.name + '、後続を寄せ付けない圧勝劇！！',
+        '桁違いの強さ！ ' + winner.name + 'の圧勝です！']);
+    } else if (diff > 60) {
+      if (isUpset) msg = pick(['大金星！！ 伏兵' + winner.name + 'が見事な勝利！ 馬券は大波乱！',
+        '痛快な下克上！ 大穴' + winner.name + 'がゴールイン！']);
+      else if (isFav) msg = pick(['堂々の1着！ ' + winner.name + '、王者の走り！',
+        '貫禄勝ち！ ' + winner.name + 'が人気に応えました！']);
+      else msg = pick(['決着！！ ' + winner.name + 'が見事な勝利！！',
+        winner.name + '、悠々とゴールイン！！']);
+    } else if (diff < 15) {
+      if (isUpset) msg = pick(['大接戦を制したのはなんと大穴' + winner.name + '！ 波乱の決着！！',
+        '並んだ！ わずかに' + winner.name + 'か！？']);
+      else if (isFav) msg = pick(['大接戦！！ しかし1番人気' + winner.name + 'が意地を見せた！',
+        '際どい勝負！ 最後は' + winner.name + 'がねじ伏せたか！']);
+      else msg = pick(['決着！！ 並んだ！ わずかに' + winner.name + 'か！？ 写真判定！',
+        'ゴール前大混戦！ 手を挙げたのは' + winner.name + 'のジョッキーだ！']);
+    } else {
+      if (isUpset) msg = pick(['大波乱！ 勝ったのは' + winner.name + '！ 素晴らしい末脚でした！',
+        '大番狂わせ！！ ' + winner.name + 'が見事に抜け出し勝利！']);
+      else if (isFav) msg = pick(['順当な決着！ 1番人気' + winner.name + 'が危なげなく勝利！',
+        '流石の強さ！ ' + winner.name + 'がキッチリと勝ち切りました！']);
+      else msg = pick(['決着！！ ' + winner.name + 'が見事な勝利を飾りました！！',
+        'ゴールイン！ 勝ったのは' + winner.name + '！ 歓声に応えます！']);
+    }
+    setPhase(99, msg);
+    return;
+  }
+
+  if (!raceActive || isFinished) return;
+  const p = leadHorse.d / totalDistance;
+  const spread = leadHorse.d - sortedHorses[sortedHorses.length - 1].d;
+
+  if (p < 0.02 && currentPhase < 0) {
+    const lateHorse = activeHorses.find(function (h) { return h.isLateStart; });
+    if (lateHorse) setPhase(0, pick(['スタートしました！ あっと、' + lateHorse.name + 'が出遅れた！',
+      'ゲートが開きました！ おっと' + lateHorse.name + '、大きく出遅れ！']));
+    else setPhase(0, pick(['ゲートが開きました！ 揃ったスタート！',
+      '各馬一斉に飛び出しました！', 'スタートしました！ ばらつきのない綺麗な発走！']));
+  } else if (p >= 0.02 && p < 0.05 && currentPhase < 1) {
+    setPhase(1, pick(['激しい先行争い！ どの馬がハナを切るか！',
+      '内から外から、各馬一斉に前を伺います！', 'ハナを奪うのはどの馬か！ ジョッキーの駆け引き！']));
+  } else if (p >= 0.05 && p < 0.09 && currentPhase < 2) {
+    if (leadHorse.runType === '大逃げ' && leadHorse.escapeType === '大') {
+      setPhase(2, pick([leadHorse.name + 'が猛然とダッシュ！ 今日は大きく離す大逃げです！',
+        'おっと' + leadHorse.name + '、後続を大きく離しにかかる！ 大逃げだ！']));
+    } else {
+      setPhase(2, pick(['まずハナを主張するのは' + leadHorse.name + '！',
+        leadHorse.name + 'が先頭に立ちました。主導権を握ります。',
+        '先手を取ったのは' + leadHorse.name + 'です！']));
+    }
+  } else if (p >= 0.09 && p < 0.13 && currentPhase < 3) {
+    setPhase(3, pick(['各馬、最初のコーナーへ殺到します！', '隊列が徐々に決まってきました。',
+      'ポジション争いも落ち着き、1コーナーへ。']));
+  } else if (p >= 0.13 && p < 0.17 && currentPhase < 4) {
+    setPhase(4, '1コーナーを通過！ 先頭は' + sortedHorses[0].name + '、2番手に' + sortedHorses[1].name + '。');
+  } else if (p >= 0.17 && p < 0.22 && currentPhase < 5) {
+    const midStr = sortedHorses.slice(3, 5).map(function (h) { return h.name; }).join('、');
+    setPhase(5, '中団にかけては' + midStr + 'などが追走しています。');
+  } else if (p >= 0.22 && p < 0.27 && currentPhase < 6) {
+    const backStr = sortedHorses.slice(8, Math.min(10, sortedHorses.length - 1)).map(function (h) { return h.name; }).join('、');
+    setPhase(6, '後方集団は' + backStr + '。最後方に' + sortedHorses[sortedHorses.length - 1].name + 'という展開！');
+  } else if (p >= 0.27 && p < 0.32 && currentPhase < 7) {
+    let msg;
+    if (packState === '縦長') msg = pick(['馬群は縦長にバラけて進みます。', '縦に細長く伸びた隊列！']);
+    else if (packState === '横長') msg = pick(['各馬横に広がって進みます。横長の展開！', '団子状態！ 馬群が密集しています！']);
+    else msg = pick(['馬群は標準的な長さで進みます。', '隊列に大きな乱れはありません。']);
+    setPhase(7, msg);
+  } else if (p >= 0.32 && p < 0.38 && currentPhase < 8) {
+    setPhase(8, pick(['2コーナーを回っていきます。', '各馬、手応えを確かめながら2コーナーを抜けます。']));
+  } else if (p >= 0.38 && p < 0.44 && currentPhase < 9) {
+    if (leadHorse.runType === '大逃げ' && leadHorse.escapeType === '大') {
+      setPhase(9, pick(['向正面に入りました！ ' + leadHorse.name + 'のポツンと一人旅！',
+        '大逃げの' + leadHorse.name + '、場内からどよめきが上がります！']));
+    } else {
+      setPhase(9, pick(['向正面に入りました。先頭' + leadHorse.name + '、マイペースの逃げ！',
+        '向正面！ ' + leadHorse.name + 'がレースを引っ張ります！']));
+    }
+  } else if (p >= 0.44 && p < 0.50 && currentPhase < 10) {
+    let msg;
+    if (racePace === 'ハイペース') msg = pick(['前半から厳しいラップ！ 完全なハイペースです！', '前が飛ばしてハイペース！ 後方待機組には展開が向くか！']);
+    else if (racePace === 'スローペース') msg = pick(['前半のペースは落ち着いています。スローペース。', 'ゆったりとした流れ！ これは瞬発力勝負必至！']);
+    else msg = pick(['前半のペースはどうか。各馬淡々と進みます。', 'ペースは平均的か。各ジョッキーの手綱は動きません。']);
+    setPhase(10, msg);
+  } else if (p >= 0.50 && p < 0.56 && currentPhase < 11) {
+    setPhase(11, pick(['第3コーナーのカーブに入ります！', 'さあ3コーナー！ ここからペースが上がるか！',
+      '3コーナーカーブ！ 各ジョッキーの思惑が交錯する！']));
+  } else if (p >= 0.56 && p < 0.62 && currentPhase < 12) {
+    setPhase(12, pick(['後続も徐々に前との差を詰めにかかる！', '馬群がグッと縮まってきた！ 激しいポジション争い！',
+      'ジョッキーの手が動く馬も出てきた！']));
+  } else if (p >= 0.62 && p < 0.68 && currentPhase < 13) {
+    if (spread > 150 && leadHorse.runType === '大逃げ') {
+      setPhase(13, leadHorse.name + 'が大逃げで飛ばす中、後続は' + packState + 'の展開！');
+    } else {
+      setPhase(13, pick(['先頭は依然として' + leadHorse.name + '！ しかし後続が迫る！',
+        leadHorse.name + 'が粘る！ 後ろのプレッシャーがキツい！']));
+    }
+  } else if (p >= 0.68 && p < 0.72 && currentPhase < 14) {
+    setPhase(14, pick(['第4コーナーのカーブ！ 激しいポジション争い！', '最後のコーナーを回る！ さあ、どの馬が抜け出すか！']));
+  } else if (p >= 0.72 && p < 0.76 && currentPhase < 15) {
+    if (leadHorse.runType === '大逃げ' && sortedHorses.length > 1 &&
+        (leadHorse.d - sortedHorses[1].d) > 200 && !leadHorse.isMonster) {
+      setPhase(15, '大逃げ' + leadHorse.name + '、ここで脚色が鈍るか！？');
+    } else {
+      setPhase(15, pick(['さあ、いよいよ最後の直線に入ります！！', '4コーナーを立ち上がって、直線コースへ！！',
+        '栄光のゴールへ向けて！ 最後の直線勝負！！']));
+    }
+  } else if (p >= 0.76 && p < 0.82 && currentPhase < 16) {
+    const leadMargin = sortedHorses.length > 1 ? leadHorse.d - sortedHorses[1].d : 200;
+    if (leadMargin > 150) setPhase(16, '‼ 直線！ ' + leadHorse.name + 'が途方もないリード！ そのまま逃げ切るか！？');
+    else setPhase(16, pick(['‼ 最後の直線！ 先頭' + leadHorse.name + 'に並びかける馬たち！',
+      '‼ 直線コース！ 各馬一斉にムチが入る！']));
+  } else if (p >= 0.82 && p < 0.88 && currentPhase < 17) {
+    const chaser = sortedHorses.find(function (h) { return h.d < leadHorse.d - 50 && h.speed > 12.0; });
+    if (chaser) setPhase(17, '‼ 大外から' + chaser.name + 'が猛然と追い込んでくる！！');
+    else setPhase(17, pick(['‼ 後続も必死にムチが入る！ 届くか！？', '‼ 2番手集団も懸命に追いすがる！！']));
+  } else if (p >= 0.88 && p < 0.93 && currentPhase < 18) {
+    setPhase(18, pick(['‼ ' + leadHorse.name + '、必死に逃げる！', '‼ 熾烈な追い比べ！ 意地と意地のぶつかり合いだ！',
+      '‼ 激しい叩き合い！ 一歩も譲らない死闘！']));
+  } else if (p >= 0.93 && p < 0.97 && currentPhase < 19) {
+    setPhase(19, pick(['残り200メートルを切った！！', 'さあラスト200メートル！ 限界を超えた勝負！！']));
+  } else if (p >= 0.97 && p < 1.0 && currentPhase < 20) {
+    const diff = sortedHorses.length > 1 ? leadHorse.d - sortedHorses[1].d : 200;
+    if (diff < 20) setPhase(20, pick(['最後のひと伸び！！ 並んだままゴールイン！！', '並んだままゴールへ！！ これは写真判定か！？']));
+    else setPhase(20, pick(['勝負ありか！！ そのまま押し切るか！！', '粘る' + leadHorse.name + '！！ ゴールは目前！！']));
+  }
+}
+
+// ------------------------------------------------------------
+// 7. 馬券（単勝・複勝・馬連・馬単・ワイド・3連複・3連単）
+// ------------------------------------------------------------
+// JRA 相当の控除率
+const TAKEOUT = {
+  '単勝': 0.20, '複勝': 0.20, '馬連': 0.225, '馬単': 0.25,
+  'ワイド': 0.225, '3連複': 0.25, '3連単': 0.275
+};
+
+// 各馬の勝率（競馬新聞に表示してる単勝オッズと完全に同じ基準）
+//   odds = 0.8 / winProb で作ってるんで、ここで逆算してもピタリ一致する。
+function winProbs() {
+  const raw = {};
+  let sum = 0;
+  horses.forEach(function (h) {
+    const v = (h.winProb && h.winProb > 0) ? h.winProb : 0.8 / Math.max(1.1, h.odds);
+    raw[h.id] = v;
+    sum += v;
+  });
+  if (sum <= 0) sum = 1;
+  const map = {};
+  horses.forEach(function (h) { map[h.id] = raw[h.id] / sum; });
+  return map;
+}
+
+// 馬券オッズを算出
+function calcOdds(type, ids) {
+  const pr = winProbs();
+  const n = horses.length;
+  function p(i) { return pr[i] || 0.001; }
+  const to = 1 - (TAKEOUT[type] || 0.25);
+  let prob = 0;
+
+  if (type === '単勝') {
+    // 新聞に載ってる単勝オッズをそのまま使う（表示と実購入の食い違いを防ぐ）
+    const hIdx = horses.findIndex(function (h) { return h.id === ids[0]; });
+    if (hIdx >= 0) return horses[hIdx].odds;
+    prob = p(ids[0]);
+  } else if (type === '複勝') {
+    // 単勝オッズ ÷ 3 + 0.2（最低1.1）
+    const hIdx = horses.findIndex(function (h) { return h.id === ids[0]; });
+    let fukuOdds = hIdx >= 0 ? horses[hIdx].odds : to / p(ids[0]);
+    fukuOdds = Math.max(1.1, fukuOdds / 3 + 0.2);
+    fukuOdds = fukuOdds < 10 ? Math.round(fukuOdds * 10) / 10 : Math.round(fukuOdds);
+    return fukuOdds;
+  } else if (type === '馬連') {
+    const a = ids[0], b = ids[1];
+    prob = p(a) * p(b) / (1 - p(a)) + p(b) * p(a) / (1 - p(b));
+  } else if (type === '馬単') {
+    const a = ids[0], b = ids[1];
+    prob = p(a) * p(b) / (1 - p(a));
+  } else if (type === 'ワイド') {
+    const a = ids[0], b = ids[1];
+    const top1 = p(a) * p(b) / (1 - p(a)) + p(b) * p(a) / (1 - p(b));
+    prob = Math.min(0.9, top1 * 3.1);
+  } else if (type === '3連複') {
+    const [a, b, c] = ids;
+    const perms = [[a, b, c], [a, c, b], [b, a, c], [b, c, a], [c, a, b], [c, b, a]];
+    for (const q of perms) {
+      prob += p(q[0]) * (p(q[1]) / (1 - p(q[0]))) * (p(q[2]) / Math.max(0.02, 1 - p(q[0]) - p(q[1])));
+    }
+  } else if (type === '3連単') {
+    const [a, b, c] = ids;
+    prob = p(a) * (p(b) / (1 - p(a))) * (p(c) / Math.max(0.02, 1 - p(a) - p(b)));
+  }
+
+  prob = Math.max(0.00002, prob);
+  let odds = to / prob;
+  odds = Math.max(1.1, odds);
+  // 端数を丸める（10倍未満は0.1刻み、それ以上は1刻み）
+  odds = odds < 10 ? Math.round(odds * 10) / 10 : Math.round(odds);
+  return odds;
+}
+
+function clearBets() { betPicksByType[betType] = []; }
+
+function getBetPicks() {
+  if (!betPicksByType[betType]) betPicksByType[betType] = [];
+  return betPicksByType[betType];
+}
+
+function togglePick(id) {
+  const need = BET_NEED[betType];
+  const picks = getBetPicks();
+  if (picks.indexOf(id) >= 0) {
+    betPicksByType[betType] = picks.filter(function (x) { return x !== id; });
+  } else {
+    if (picks.length >= need) picks.shift();
+    picks.push(id);
+    betPicksByType[betType] = picks;
+  }
+  updatePanel();
+}
+
+function buyTicket() {
+  if (isRacing || isFinished) { toast('レース中は馬券を買えへんで'); return; }
+  const need = BET_NEED[betType];
+  const picks = getBetPicks();
+  const ready = picks.length === need && picks.every(function (x) { return x > 0; });
+  if (!ready) { toast(need + '頭ぜんぶ選んでや'); return; }
+  if (myMoney < betStake) { toast('所持金が足りへんで'); return; }
+  const odds = calcOdds(betType, picks.slice());
+  myMoney -= betStake;
+  tickets.push({ type: betType, picks: picks.slice(), stake: betStake, odds: odds });
+  betPicksByType[betType] = [];
+  updateHUD();
+  updatePanel();
+}
+
+function removeTicket(i) {
+  if (isRacing || isFinished) return;
+  const t = tickets[i];
+  if (!t) return;
+  myMoney += t.stake;
+  tickets.splice(i, 1);
+  updateHUD();
+  updatePanel();
+}
+
+function ticketHit(t, rankOf) {
+  const r = t.picks.map(function (id) { return rankOf[id]; });
+  if (t.type === '単勝') return r[0] === 1;
+  if (t.type === '複勝') return r[0] >= 1 && r[0] <= 3;
+  if (t.type === '馬連') return r[0] <= 2 && r[1] <= 2;
+  if (t.type === '馬単') return r[0] === 1 && r[1] === 2;
+  if (t.type === 'ワイド') return r[0] <= 3 && r[1] <= 3;
+  if (t.type === '3連複') return r[0] <= 3 && r[1] <= 3 && r[2] <= 3;
+  if (t.type === '3連単') return r[0] === 1 && r[1] === 2 && r[2] === 3;
+  return false;
+}
+
+function settleTickets(sorted) {
+  const rankOf = {};
+  sorted.forEach(function (h, i) { rankOf[h.id] = i + 1; });
+  let total = 0;
+  let hitCount = 0;
+  let stakeTotal = 0;
+  const lines = [];
+  const details = [];
+  tickets.forEach(function (t) {
+    stakeTotal += t.stake;
+    const hit = ticketHit(t, rankOf);
+    const pay = hit ? Math.floor(t.stake * t.odds) : 0;
+    if (hit) {
+      total += pay;
+      hitCount++;
+      lines.push(t.type + ' ' + t.picks.join('-') + ' → ' + fmt(pay) + ' G');
+    }
+    details.push({
+      type: t.type, picks: t.picks.slice(), stake: t.stake,
+      odds: t.odds, hit: hit, pay: pay
+    });
+  });
+  if (total > 0) myMoney += total;
+  return { total: total, hits: hitCount, lines: lines, details: details, stakeTotal: stakeTotal };
+}
+
+function settlePrize(sortedHorses) {
+  const raceInfo = getRaceInfo();
+  const myRank = sortedHorses.findIndex(function (h) { return h.isMyHorse; });
+
+  lastPrize = 0;
+  if (myRank >= 0) {
+    if (myRank === 0) { lastPrize = raceInfo.prize; if (myHorseData) myHorseData.wins++; }
+    else if (myRank === 1) lastPrize = raceInfo.prize * 0.6;
+    else if (myRank === 2) lastPrize = raceInfo.prize * 0.4;
+    else if (myRank === 3) lastPrize = raceInfo.prize * 0.2;
+    else if (myRank === 4) lastPrize = raceInfo.prize * 0.1;
+  }
+  if (myHorseData) myHorseData.prizeMoney = (myHorseData.prizeMoney || 0) + lastPrize;
+  myMoney += lastPrize;
+
+  // --- 一口馬主の配当（元仕様どおり上位5頭） ---
+  let payout = 0;
+  for (let i = 0; i < Math.min(sortedHorses.length, 5); i++) {
+    const h = sortedHorses[i];
+    const sh = ownedShares[h.id] || 0;
+    if (sh > 0) {
+      let prize = 0;
+      if (i === 0) prize = raceInfo.prize;
+      else if (i === 1) prize = raceInfo.prize * 0.6;
+      else if (i === 2) prize = raceInfo.prize * 0.4;
+      else if (i === 3) prize = raceInfo.prize * 0.2;
+      else if (i === 4) prize = raceInfo.prize * 0.1;
+      payout += Math.floor(prize * 0.6) * sh;
+    }
+  }
+  if (payout > 0) { myMoney += payout; lastPayout = payout; }
+
+  // --- 馬券の精算 ---
+  const betRes = settleTickets(sortedHorses);
+  lastBetResult = betRes;
+
+  // --- 出走による能力低下と調子悪化（元仕様どおり） ---
+  if (isPlayerEntered && myHorseData) {
+    myHorseData.baseSpeed  = Math.max(1.0, myHorseData.baseSpeed  - rnd(0.05, 0.15));
+    myHorseData.spurtPower = Math.max(1.0, myHorseData.spurtPower - rnd(0.05, 0.15));
+    myHorseData.guts       = Math.max(1.0, myHorseData.guts       - rnd(0.05, 0.15));
+    const idx = condIdx(myHorseData.condition);
+    myHorseData.condition = COND_NAMES[Math.max(0, idx - 1)];
+  }
+
+  prizeAwarded = true;
+  updateHUD();
+}
+
+let lastBetResult = { total: 0, hits: 0, lines: [], details: [], stakeTotal: 0 };
+
+// ------------------------------------------------------------
+// 9. 描画（Canvas 2D + 自前透視投影）
+// ------------------------------------------------------------
+function el(id) { return document.getElementById(id); }
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  cv.width = Math.floor(W * DPR);
+  cv.height = Math.floor(H * DPR);
+  cv.style.width = W + 'px';
+  cv.style.height = H + 'px';
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+function shade(hex, amt) {
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+  let r = parseInt(c.substr(0, 2), 16);
+  let gg = parseInt(c.substr(2, 2), 16);
+  let b = parseInt(c.substr(4, 2), 16);
+  if (amt > 0) {
+    r = Math.round(r + (255 - r) * amt);
+    gg = Math.round(gg + (255 - gg) * amt);
+    b = Math.round(b + (255 - b) * amt);
+  } else {
+    r = Math.round(r * (1 + amt));
+    gg = Math.round(gg * (1 + amt));
+    b = Math.round(b * (1 + amt));
+  }
+  return 'rgb(' + clamp(r, 0, 255) + ',' + clamp(gg, 0, 255) + ',' + clamp(b, 0, 255) + ')';
+}
+
+function drawSky() {
+  const hz = horizonY();
+  const grad = g.createLinearGradient(0, 0, 0, Math.max(hz, 1));
+  grad.addColorStop(0, '#0e1c2e');
+  grad.addColorStop(0.45, '#20405e');
+  grad.addColorStop(0.85, '#5c86a6');
+  grad.addColorStop(1, '#9db8c9');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, Math.max(hz, 1));
+
+  // 雲
+  g.save();
+  g.globalAlpha = 0.14;
+  g.fillStyle = '#ffffff';
+  for (let i = 0; i < 12; i++) {
+    const cx = ((i * 383 + cam.yaw * 300) % (W + 600)) - 300;
+    const cy = 30 + ((i * 71) % Math.max(50, hz * 0.75));
+    const rw = 130 + (i % 4) * 70;
+    g.beginPath();
+    g.ellipse(cx, cy, rw, rw * 0.24, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.restore();
+
+  // 遠景の山並み
+  g.save();
+  g.fillStyle = 'rgba(26,54,40,0.78)';
+  g.beginPath();
+  g.moveTo(0, hz + 8);
+  for (let x = 0; x <= W; x += 32) {
+    const y = hz + 4 - Math.sin((x + cam.yaw * 520) * 0.0032) * 34
+                    - Math.cos(x * 0.0081) * 15
+                    - Math.sin(x * 0.019) * 5;
+    g.lineTo(x, y);
+  }
+  g.lineTo(W, hz + 40);
+  g.lineTo(0, hz + 40);
+  g.closePath();
+  g.fill();
+  g.restore();
+
+  // スタンド（簡易）
+  g.save();
+  g.globalAlpha = 0.5;
+  g.fillStyle = '#233240';
+  const stY = hz - 46;
+  for (let i = 0; i < 4; i++) {
+    g.fillRect(0, stY + i * 12, W, 7);
+  }
+  g.restore();
+}
+
+function drawGround() {
+  const hz = horizonY();
+  const top = Math.max(0, hz);
+  const gd = g.createLinearGradient(0, top, 0, H);
+  gd.addColorStop(0, '#3c6f34');
+  gd.addColorStop(0.35, '#2e5c29');
+  gd.addColorStop(1, '#1d3a1b');
+  g.fillStyle = gd;
+  g.fillRect(0, top, W, H - top);
+}
+
+function drawTrackBand(offInner, offOuter, color, yTop) {
+  const step = 200;
+  const y = (yTop === undefined) ? 0.8 : yTop;
+  const outerPts = [], innerPts = [];
+  for (let d = 0; d <= totalDistance; d += step) {
+    const po = getTrackPos(d, offOuter);
+    const pi = getTrackPos(d, offInner);
+    outerPts.push(project(po.x, y, po.z));
+    innerPts.push(project(pi.x, y, pi.z));
+  }
+  g.beginPath();
+  let drew = false;
+  for (let k = 0; k < outerPts.length - 1; k++) {
+    const a = outerPts[k], b = outerPts[k + 1];
+    const ca = innerPts[k], cb = innerPts[k + 1];
+    if (!a || !b || !ca || !cb) continue;
+    g.moveTo(a.x, a.y);
+    g.lineTo(b.x, b.y);
+    g.lineTo(cb.x, cb.y);
+    g.lineTo(ca.x, ca.y);
+    g.closePath();
+    drew = true;
+  }
+  if (drew) { g.fillStyle = color; g.fill(); }
+}
+
+function drawTrackSurface() {
+  drawTrackBand(-1500, 1500, '#2f6d2c');    // 外周芝
+  drawTrackBand(-260, 260, '#b98a5c');      // ダート
+  drawTrackBand(-274, -260, '#eef2f5');     // 内ラチ
+  drawTrackBand(260, 274, '#eef2f5');       // 外ラチ
+}
+
+function drawTrackLines() {
+  const line = function (d, color, wdt) {
+    const a = getTrackPos(d, -258);
+    const b = getTrackPos(d, 258);
+    const pa = project(a.x, 1.2, a.z);
+    const pb = project(b.x, 1.2, b.z);
+    if (!pa || !pb) return;
+    g.strokeStyle = color;
+    g.lineWidth = Math.max(1, wdt * pa.s * 0.0016 + 0.8);
+    g.beginPath();
+    g.moveTo(pa.x, pa.y);
+    g.lineTo(pb.x, pb.y);
+    g.stroke();
+  };
+  line(0, 'rgba(255,255,255,0.9)', 7);
+  line(totalDistance, 'rgba(229,57,53,0.95)', 9);
+  for (let d = 1000; d < totalDistance; d += 1000) line(d, 'rgba(255,255,255,0.18)', 3);
+}
+
+function drawFencePosts() {
+  const posts = [];
+  for (let d = 0; d <= totalDistance; d += 420) {
+    for (const side of [-1, 1]) {
+      const p = getTrackPos(d, side * 282);
+      const pt = project(p.x, 8, p.z);
+      if (pt) posts.push(pt);
+    }
+  }
+  posts.sort(function (a, b) { return b.d - a.d; });
+  for (const pt of posts) {
+    const hh = clamp(pt.s * 22, 2, 90);
+    const ww = Math.max(1, clamp(pt.s * 2.4, 0.8, 6));
+    g.fillStyle = 'rgba(236,239,241,0.88)';
+    g.fillRect(pt.x - ww / 2, pt.y - hh, ww, hh);
+  }
+}
+
+function drawGate(d, open) {
+  const p = getTrackPos(d, 0);
+  const left = getTrackPos(d, -300);
+  const right = getTrackPos(d, 300);
+  const a = project(left.x, 0, left.z);
+  const b = project(right.x, 0, right.z);
+  const at = project(left.x, 150, left.z);
+  const bt = project(right.x, 150, right.z);
+  const c = project(p.x, 0, p.z);
+  if (!a || !b || !c) return;
+  const sc = c.s;
+
+  // 支柱
+  if (at && bt) {
+    g.strokeStyle = '#263238';
+    g.lineWidth = Math.max(1.5, clamp(sc * 5, 1.5, 60));
+    g.beginPath();
+    g.moveTo(a.x, a.y); g.lineTo(at.x, at.y);
+    g.moveTo(b.x, b.y); g.lineTo(bt.x, bt.y);
+    g.stroke();
+
+    // 上枠
+    g.strokeStyle = '#37474f';
+    g.lineWidth = Math.max(1.5, clamp(sc * 4, 1.5, 50));
+    g.beginPath();
+    g.moveTo(at.x, at.y); g.lineTo(bt.x, bt.y);
+    g.stroke();
+  }
+
+  // 各馬のゲート扉
+  for (let i = 0; i < numHorses; i++) {
+    const lane = -160 + (320 / (numHorses - 1)) * i;
+    const q = getTrackPos(d, lane);
+    const base = project(q.x, 0, q.z);
+    const top = project(q.x, 105, q.z);
+    if (!base || !top) continue;
+    const w = Math.max(1.2, base.s * 9);
+    // 扉（開くと横に寝る）
+    const opened = open ? 1 : 0;
+    g.save();
+    g.strokeStyle = 'rgba(207,216,220,0.9)';
+    g.lineWidth = Math.max(1, base.s * 1.1);
+    g.beginPath();
+    g.moveTo(base.x - w, base.y);
+    g.lineTo(base.x - w * (1 - opened * 0.85), top.y + (base.y - top.y) * opened * 0.15);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(base.x + w, base.y);
+    g.lineTo(base.x + w * (1 - opened * 0.85), top.y + (base.y - top.y) * opened * 0.15);
+    g.stroke();
+    g.restore();
+  }
+}
+
+// ============================================================
+//  馬体（横から見たリアル寄りのシルエット）
+//  ローカル座標: +x = 進行方向, -y = 上。y=0 が地面。
+//  L = 体長の基準スケール
+// ============================================================
+function limbSeg(x1, y1, x2, y2, w1, w2, color) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+  g.fillStyle = color;
+  g.beginPath();
+  g.moveTo(x1 + nx * w1, y1 + ny * w1);
+  g.lineTo(x2 + nx * w2, y2 + ny * w2);
+  g.lineTo(x2 - nx * w2, y2 - ny * w2);
+  g.lineTo(x1 - nx * w1, y1 - ny * w1);
+  g.closePath();
+  g.fill();
+  // 丸みを補う
+  g.beginPath();
+  g.arc(x2, y2, w2, 0, Math.PI * 2);
+  g.fill();
+}
+
+// 脚1本を順運動学で描く
+// hipA/kneeA/fetA : 付け根からの角度(rad, 0=真下, +が前)
+function drawLegChain(x0, y0, hipA, kneeA, fetA, cfg, coat, L, isFront) {
+  const upper = cfg.upper * L, lower = cfg.lower * L, cannon = cfg.cannon * L;
+  const wU = cfg.wUpper * L, wL = cfg.wLower * L, wC = cfg.wCannon * L;
+
+  let px = x0 * L, py = y0 * L;
+  const a1 = hipA;
+  const j1x = px + Math.sin(a1) * upper, j1y = py + Math.cos(a1) * upper;
+  const a2 = a1 + kneeA;
+  const j2x = j1x + Math.sin(a2) * lower, j2y = j1y + Math.cos(a2) * lower;
+  const a3 = a2 + fetA;
+  const j3x = j2x + Math.sin(a3) * cannon, j3y = j2y + Math.cos(a3) * cannon;
+
+  const upperCol  = coat;
+  const lowerCol  = shade(coat, -0.20);
+  const cannonCol = shade(coat, -0.48);
+
+  limbSeg(px, py, j1x, j1y, wU, wU * 0.62, upperCol);
+  limbSeg(j1x, j1y, j2x, j2y, wL, wL * 0.72, lowerCol);
+  limbSeg(j2x, j2y, j3x, j3y, wC, wC * 0.92, cannonCol);
+
+  // 蹄（角度に合わせて）
+  g.save();
+  g.translate(j3x, j3y);
+  g.rotate(-a3);
+  const hoofW = wC * 2.4, hoofH = wC * 2.0;
+  g.fillStyle = '#26211d';
+  g.beginPath();
+  g.moveTo(-hoofW, 0);
+  g.lineTo(hoofW, 0);
+  g.lineTo(hoofW * 0.78, hoofH);
+  g.lineTo(-hoofW * 0.82, hoofH);
+  g.closePath();
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.14)';
+  g.beginPath();
+  g.moveTo(-hoofW, 0);
+  g.lineTo(hoofW, 0);
+  g.lineTo(hoofW * 0.9, hoofH * 0.22);
+  g.lineTo(-hoofW * 0.92, hoofH * 0.22);
+  g.closePath();
+  g.fill();
+  g.restore();
+}
+
+// ------------------------------------------------------------
+// 馬体本体
+// ------------------------------------------------------------
+function drawHorseBody(L, phase, moving, coat, silk, opts) {
+  opts = opts || {};
+  const dark  = shade(coat, -0.40);
+  const mid   = shade(coat, -0.12);
+  const light = shade(coat, 0.26);
+  const t = phase;
+  const gallop = !!opts.gallop;
+
+  // ---- 歩様（フーリエ合成で滑らかに） ----
+  const AMP = gallop ? 0.92 : 0.44;
+  const kneeAmp = gallop ? 1.30 : 0.52;
+
+  // ギャロップは「後→後→前→前」、常歩は対角
+  const ph = gallop
+    ? { nH: 0.0, oH: Math.PI * 0.62, oF: Math.PI * 1.18, nF: Math.PI * 1.72 }
+    : { oH: 0.0, nH: Math.PI, oF: Math.PI * 0.5, nF: Math.PI * 1.5 };
+
+  function hip(o)  { return moving ? Math.sin(t + o) * AMP : 0.03; }
+  function knee(o) {
+    if (!moving) return -0.04;
+    const s = Math.sin(t + o + 1.25);
+    return Math.max(0, s) * kneeAmp;   // 前方に折れる
+  }
+  function fet(o) {
+    if (!moving) return 0.02;
+    const s = Math.sin(t + o + 2.1);
+    return Math.max(0, s) * (gallop ? 0.55 : 0.22);
+  }
+
+  // ---- 胴の上下動・ピッチ ----
+  const bob   = moving ? Math.sin(t * 2) * (gallop ? 0.040 : 0.014) * L : 0;
+  const pitch = moving ? Math.cos(t) * (gallop ? 0.085 : 0.018) : 0;
+
+  // 前脚・後脚の寸法（L=1 基準）
+  const FORE = { upper: 0.235, lower: 0.115, cannon: 0.125,
+                 wUpper: 0.052, wLower: 0.030, wCannon: 0.019 };
+  const HIND = { upper: 0.255, lower: 0.135, cannon: 0.120,
+                 wUpper: 0.070, wLower: 0.038, wCannon: 0.021 };
+
+  // 付け根の位置
+  const SHOULDER = { x: 0.255, y: -0.455 };
+  const HIP      = { x: -0.335, y: -0.505 };
+
+  // ============ 奥側の脚 ============
+  g.save();
+  g.globalAlpha = 0.55;
+  drawLegChain(SHOULDER.x - 0.035, SHOULDER.y, hip(ph.oF), -knee(ph.oF), fet(ph.oF), FORE, dark, L, true);
+  drawLegChain(HIP.x - 0.030, HIP.y, hip(ph.oH), -knee(ph.oH) * 0.9, fet(ph.oH), HIND, dark, L, false);
+  g.restore();
+
+  // ============ 胴体 ============
+  g.save();
+  g.translate(0, bob);
+  g.rotate(pitch);
+
+  // バレル
+  const bodyGrad = g.createLinearGradient(0, -0.82 * L, 0, -0.30 * L);
+  bodyGrad.addColorStop(0, light);
+  bodyGrad.addColorStop(0.38, coat);
+  bodyGrad.addColorStop(1, mid);
+  g.fillStyle = bodyGrad;
+
+  const BL = L;   // 短縮
+  g.beginPath();
+  // 胸前
+  g.moveTo(0.300 * BL, -0.735 * BL);
+  g.bezierCurveTo(0.360 * BL, -0.660 * BL, 0.375 * BL, -0.560 * BL, 0.355 * BL, -0.470 * BL);
+  // 前胸部の丸み
+  g.bezierCurveTo(0.345 * BL, -0.400 * BL, 0.310 * BL, -0.355 * BL, 0.250 * BL, -0.330 * BL);
+  // 腹
+  g.bezierCurveTo(0.130 * BL, -0.300 * BL, -0.030 * BL, -0.300 * BL, -0.160 * BL, -0.330 * BL);
+  // 後腹〜脇腹
+  g.bezierCurveTo(-0.270 * BL, -0.355 * BL, -0.380 * BL, -0.420 * BL, -0.440 * BL, -0.520 * BL);
+  // 尻
+  g.bezierCurveTo(-0.500 * BL, -0.610 * BL, -0.520 * BL, -0.720 * BL, -0.470 * BL, -0.775 * BL);
+  // 腰
+  g.bezierCurveTo(-0.400 * BL, -0.815 * BL, -0.255 * BL, -0.822 * BL, -0.120 * BL, -0.812 * BL);
+  // 背
+  g.bezierCurveTo(0.010 * BL, -0.805 * BL, 0.150 * BL, -0.795 * BL, 0.245 * BL, -0.778 * BL);
+  // 肩〜胸前へ戻る
+  g.bezierCurveTo(0.290 * BL, -0.770 * BL, 0.298 * BL, -0.752 * BL, 0.300 * BL, -0.735 * BL);
+  g.closePath();
+  g.fill();
+
+  // 腹側の陰影
+  g.save();
+  g.globalAlpha = 0.20;
+  g.fillStyle = dark;
+  g.beginPath();
+  g.moveTo(0.240 * BL, -0.340 * BL);
+  g.bezierCurveTo(0.100 * BL, -0.302 * BL, -0.080 * BL, -0.302 * BL, -0.230 * BL, -0.348 * BL);
+  g.bezierCurveTo(-0.120 * BL, -0.330 * BL, 0.080 * BL, -0.328 * BL, 0.240 * BL, -0.340 * BL);
+  g.closePath();
+  g.fill();
+  g.restore();
+
+  // 肩の筋肉
+  g.save();
+  g.globalAlpha = 0.18;
+  g.fillStyle = light;
+  g.beginPath();
+  g.ellipse(0.215 * BL, -0.610 * BL, 0.105 * BL, 0.115 * BL, -0.35, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+
+  // 臀部の筋肉（大腿）
+  g.save();
+  g.globalAlpha = 0.20;
+  g.fillStyle = light;
+  g.beginPath();
+  g.ellipse(-0.360 * BL, -0.660 * BL, 0.115 * BL, 0.125 * BL, 0.22, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+
+  // 肋骨のさざなみ
+  g.save();
+  g.globalAlpha = 0.10;
+  g.strokeStyle = dark;
+  g.lineWidth = 0.008 * BL;
+  for (let r = 0; r < 5; r++) {
+    const rx = (0.12 - r * 0.075) * BL;
+    g.beginPath();
+    g.moveTo(rx, -0.760 * BL);
+    g.quadraticCurveTo(rx - 0.045 * BL, -0.560 * BL, rx - 0.012 * BL, -0.330 * BL);
+    g.stroke();
+  }
+  g.restore();
+
+  // ============ 首 ============
+  // ギャロップ時は首を前方へ伸ばす
+  const neckFwd = moving ? (gallop ? 1.0 : 0.45) : 0.25;
+  const pollX = 0.245 + 0.205 * neckFwd;
+  const pollY = -0.790 - (gallop ? 0.175 : 0.245) + (gallop ? 0.06 : 0);
+
+  const neckGrad = g.createLinearGradient(0.20 * BL, -0.78 * BL, pollX * BL, pollY * BL);
+  neckGrad.addColorStop(0, mid);
+  neckGrad.addColorStop(0.55, coat);
+  neckGrad.addColorStop(1, light);
+  g.fillStyle = neckGrad;
+
+  g.beginPath();
+  // 首の下縁（喉側）
+  g.moveTo(0.300 * BL, -0.700 * BL);
+  g.bezierCurveTo(0.360 * BL, -0.800 * BL, pollX * 0.90 * BL, pollY * 0.965 * BL,
+                  pollX * BL, pollY * BL + 0.030 * BL);
+  // 頭の付け根
+  g.bezierCurveTo(pollX * BL + 0.045 * BL, pollY * BL + 0.055 * BL,
+                  pollX * BL + 0.055 * BL, pollY * BL + 0.090 * BL,
+                  pollX * BL + 0.040 * BL, pollY * BL + 0.130 * BL);
+  // 首の上縁（項側）へ戻る
+  g.bezierCurveTo((pollX - 0.09) * BL, pollY * BL + 0.155 * BL,
+                  0.215 * BL, -0.795 * BL, 0.245 * BL, -0.780 * BL);
+  g.closePath();
+  g.fill();
+
+  // ============ 頭 ============
+  g.save();
+  g.translate(pollX * BL, pollY * BL);
+  const headAngle = gallop ? 0.92 : 0.62;
+  g.rotate(headAngle);
+
+  const HL = L * 0.86;   // 頭のスケール
+
+  // 頭蓋
+  g.fillStyle = coat;
+  g.beginPath();
+  g.ellipse(0.0, 0.0, 0.088 * HL, 0.078 * HL, 0, 0, Math.PI * 2);
+  g.fill();
+
+  // 鼻梁〜鼻先（長い楔形）
+  g.beginPath();
+  g.moveTo(-0.020 * HL, -0.068 * HL);
+  g.bezierCurveTo(0.090 * HL, -0.052 * HL, 0.185 * HL, -0.036 * HL, 0.215 * HL, -0.018 * HL);
+  g.bezierCurveTo(0.230 * HL, -0.004 * HL, 0.230 * HL, 0.018 * HL, 0.212 * HL, 0.032 * HL);
+  g.bezierCurveTo(0.170 * HL, 0.056 * HL, 0.075 * HL, 0.076 * HL, -0.020 * HL, 0.082 * HL);
+  g.closePath();
+  g.fill();
+
+  // 鼻先（暗色）
+  g.fillStyle = dark;
+  g.beginPath();
+  g.ellipse(0.205 * HL, 0.008 * HL, 0.030 * HL, 0.030 * HL, 0.15, 0, Math.PI * 2);
+  g.fill();
+  // 鼻孔
+  g.fillStyle = '#0d0a08';
+  g.beginPath();
+  g.ellipse(0.208 * HL, -0.004 * HL, 0.010 * HL, 0.013 * HL, 0.3, 0, Math.PI * 2);
+  g.fill();
+
+  // 下顎（ガナッシュ）
+  g.fillStyle = mid;
+  g.beginPath();
+  g.ellipse(0.075 * HL, 0.062 * HL, 0.088 * HL, 0.042 * HL, 0.16, 0, Math.PI * 2);
+  g.fill();
+
+  // 頬（えら）
+  g.fillStyle = shade(coat, -0.18);
+  g.beginPath();
+  g.ellipse(0.010 * HL, 0.020 * HL, 0.062 * HL, 0.062 * HL, 0.2, 0, Math.PI * 2);
+  g.fill();
+
+  // 目
+  g.fillStyle = '#0a0806';
+  g.beginPath();
+  g.ellipse(0.052 * HL, -0.036 * HL, 0.016 * HL, 0.014 * HL, -0.2, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.80)';
+  g.beginPath();
+  g.arc(0.058 * HL, -0.041 * HL, 0.0055 * HL, 0, Math.PI * 2);
+  g.fill();
+  // 眼球のまわりの窪み
+  g.save();
+  g.globalAlpha = 0.25;
+  g.fillStyle = dark;
+  g.beginPath();
+  g.ellipse(0.052 * HL, -0.034 * HL, 0.028 * HL, 0.024 * HL, -0.2, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+
+  // 耳（2枚）
+  g.fillStyle = coat;
+  g.beginPath();
+  g.moveTo(-0.055 * HL, -0.062 * HL);
+  g.lineTo(-0.082 * HL, -0.125 * HL);
+  g.lineTo(-0.024 * HL, -0.070 * HL);
+  g.closePath();
+  g.fill();
+  g.beginPath();
+  g.moveTo(-0.018 * HL, -0.072 * HL);
+  g.lineTo(-0.022 * HL, -0.130 * HL);
+  g.lineTo(0.014 * HL, -0.066 * HL);
+  g.closePath();
+  g.fill();
+  // 耳の内側
+  g.fillStyle = shade(coat, -0.32);
+  g.beginPath();
+  g.moveTo(-0.048 * HL, -0.068 * HL);
+  g.lineTo(-0.066 * HL, -0.110 * HL);
+  g.lineTo(-0.032 * HL, -0.072 * HL);
+  g.closePath();
+  g.fill();
+
+  // 頭絡（ハミ・頬革）
+  g.strokeStyle = '#3a2d22';
+  g.lineWidth = 0.016 * HL;
+  g.beginPath();
+  g.moveTo(0.160 * HL, -0.028 * HL);
+  g.lineTo(0.162 * HL, 0.030 * HL);
+  g.stroke();
+  g.lineWidth = 0.013 * HL;
+  g.beginPath();
+  g.moveTo(0.048 * HL, -0.060 * HL);
+  g.quadraticCurveTo(0.110 * HL, 0.000 * HL, 0.160 * HL, 0.010 * HL);
+  g.stroke();
+
+  g.restore();
+
+  // ============ タテガミ ============
+  g.fillStyle = dark;
+  g.beginPath();
+  g.moveTo(0.245 * BL, -0.782 * BL);
+  g.bezierCurveTo(0.270 * BL, -0.845 * BL, pollX * 0.86 * BL, pollY * 0.975 * BL,
+                  pollX * BL, pollY * BL + 0.008 * BL);
+  g.bezierCurveTo(pollX * 0.92 * BL, pollY * BL + 0.075 * BL,
+                  0.275 * BL, -0.830 * BL, 0.268 * BL, -0.760 * BL);
+  g.closePath();
+  g.fill();
+
+  if (moving) {
+    g.strokeStyle = dark;
+    g.lineWidth = 0.010 * L;
+    g.lineCap = 'round';
+    for (let m = 0; m < 7; m++) {
+      const u = m / 7;
+      const bx = lerp(0.250, pollX, u) * BL;
+      const by = lerp(-0.790, pollY + 0.015, u) * BL;
+      const wav = Math.sin(t * 2.4 + m * 0.9) * 0.022;
+      g.beginPath();
+      g.moveTo(bx, by);
+      g.quadraticCurveTo(bx - 0.030 * L, by + 0.030 * L,
+                         bx - 0.055 * L + wav * L, by + 0.075 * L);
+      g.stroke();
+    }
+  }
+
+  // ============ 尻尾 ============
+  const tailSwing = moving ? Math.sin(t * 1.5) * (gallop ? 0.30 : 0.12) : Math.sin(t * 0.35) * 0.05;
+  g.save();
+  g.translate(-0.455 * BL, -0.770 * BL);
+  g.rotate(0.38 + tailSwing);
+  const tailGrad = g.createLinearGradient(0, 0, -0.10 * BL, 0.55 * BL);
+  tailGrad.addColorStop(0, mid);
+  tailGrad.addColorStop(0.45, dark);
+  tailGrad.addColorStop(1, shade(coat, -0.55));
+  g.fillStyle = tailGrad;
+  g.beginPath();
+  g.moveTo(0, 0);
+  g.bezierCurveTo(-0.085 * BL, 0.120 * BL, -0.160 * BL, 0.320 * BL, -0.130 * BL, 0.540 * BL);
+  g.bezierCurveTo(-0.060 * BL, 0.400 * BL, 0.010 * BL, 0.230 * BL, 0.055 * BL, 0.045 * BL);
+  g.closePath();
+  g.fill();
+  // 尾の毛束
+  g.strokeStyle = shade(coat, -0.60);
+  g.lineWidth = 0.012 * L;
+  g.lineCap = 'round';
+  for (let k = 0; k < 4; k++) {
+    g.beginPath();
+    g.moveTo(-0.020 * L, 0.100 * L);
+    g.quadraticCurveTo((-0.090 - k * 0.012) * L, (0.280 + k * 0.03) * L,
+                       (-0.105 - k * 0.018) * L, (0.470 + k * 0.02) * L);
+    g.stroke();
+  }
+  g.restore();
+
+  // ============ 鞍（ゼッケン付き） ============
+  g.fillStyle = '#3b2a1c';
+  g.beginPath();
+  g.moveTo(-0.170 * BL, -0.800 * BL);
+  g.quadraticCurveTo(0.000 * BL, -0.868 * BL, 0.150 * BL, -0.792 * BL);
+  g.quadraticCurveTo(0.020 * BL, -0.740 * BL, -0.100 * BL, -0.762 * BL);
+  g.closePath();
+  g.fill();
+  // 鞍の座面
+  g.fillStyle = '#120c08';
+  g.beginPath();
+  g.ellipse(-0.020 * BL, -0.812 * BL, 0.115 * BL, 0.032 * BL, -0.03, 0, Math.PI * 2);
+  g.fill();
+  // ゼッケン（番号）
+  g.fillStyle = '#f5f5f5';
+  g.beginPath();
+  g.roundRect(-0.130 * BL, -0.760 * BL, 0.070 * BL, 0.058 * BL, 0.010 * BL);
+  g.fill();
+  // 腹帯
+  g.strokeStyle = '#2b1e14';
+  g.lineWidth = 0.026 * BL;
+  g.beginPath();
+  g.moveTo(0.115 * BL, -0.780 * BL);
+  g.quadraticCurveTo(0.130 * BL, -0.520 * BL, 0.095 * BL, -0.318 * BL);
+  g.stroke();
+  // 鐙
+  g.strokeStyle = '#4e342e';
+  g.lineWidth = 0.014 * BL;
+  g.beginPath();
+  g.moveTo(0.070 * BL, -0.760 * BL);
+  g.lineTo(0.090 * BL, -0.500 * BL);
+  g.stroke();
+  g.fillStyle = '#616161';
+  g.beginPath();
+  g.ellipse(0.092 * BL, -0.492 * BL, 0.020 * BL, 0.012 * BL, 0, 0, Math.PI * 2);
+  g.fill();
+
+  // ============ 手前側の脚 ============
+  drawLegChain(SHOULDER.x + 0.020, SHOULDER.y, hip(ph.nF), -knee(ph.nF), fet(ph.nF), FORE, coat, L, true);
+  drawLegChain(HIP.x + 0.022, HIP.y, hip(ph.nH), -knee(ph.nH) * 0.9, fet(ph.nH), HIND, coat, L, false);
+
+  // ============ ジョッキー ============
+  drawJockey(L, silk, t, moving, gallop, pollX, pollY);
+
+  g.restore();
+}
+
+// ジョッキー（モンキー乗り）
+function drawJockey(L, silk, t, moving, gallop, pollX, pollY) {
+  const seatX = -0.025 * L;
+  const seatY = -0.845 * L;
+  const lean = moving ? (gallop ? 0.78 : 0.40) + Math.sin(t) * 0.045 : 0.24;
+
+  g.save();
+  g.translate(seatX, seatY);
+  g.rotate(-lean);
+
+  const sDark = shade(silk, -0.24);
+  const sLight = shade(silk, 0.24);
+
+  // 脚（鐙へ）— 体より先に描いて奥行き
+  g.strokeStyle = '#fafafa';
+  g.lineWidth = 0.040 * L;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(-0.020 * L, 0.010 * L);
+  g.quadraticCurveTo(-0.005 * L, 0.090 * L, 0.048 * L, 0.140 * L);
+  g.stroke();
+  g.strokeStyle = '#212121';
+  g.lineWidth = 0.032 * L;
+  g.beginPath();
+  g.moveTo(0.048 * L, 0.140 * L);
+  g.lineTo(0.082 * L, 0.192 * L);
+  g.stroke();
+  g.fillStyle = '#1a1a1a';
+  g.beginPath();
+  g.ellipse(0.092 * L, 0.202 * L, 0.030 * L, 0.016 * L, 0.42, 0, Math.PI * 2);
+  g.fill();
+
+  // 胴（勝負服）
+  const grad = g.createLinearGradient(0, -0.235 * L, 0, 0.020 * L);
+  grad.addColorStop(0, sLight);
+  grad.addColorStop(0.55, silk);
+  grad.addColorStop(1, sDark);
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(-0.070 * L, 0.005 * L);
+  g.bezierCurveTo(-0.090 * L, -0.090 * L, -0.062 * L, -0.165 * L, -0.020 * L, -0.190 * L);
+  g.bezierCurveTo(0.020 * L, -0.212 * L, 0.062 * L, -0.180 * L, 0.078 * L, -0.130 * L);
+  g.bezierCurveTo(0.090 * L, -0.080 * L, 0.080 * L, -0.030 * L, 0.070 * L, 0.005 * L);
+  g.closePath();
+  g.fill();
+
+  // ゼッケン（背番号帯）
+  g.fillStyle = 'rgba(255,255,255,0.90)';
+  g.beginPath();
+  g.roundRect(-0.048 * L, -0.140 * L, 0.036 * L, 0.080 * L, 0.008 * L);
+  g.fill();
+
+  // 腕（手綱へ）
+  g.strokeStyle = shade(silk, 0.02);
+  g.lineWidth = 0.038 * L;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(0.030 * L, -0.155 * L);
+  g.quadraticCurveTo(0.100 * L, -0.130 * L, 0.150 * L, -0.062 * L);
+  g.stroke();
+
+  // 手綱
+  g.strokeStyle = '#3a2d22';
+  g.lineWidth = 0.009 * L;
+  g.beginPath();
+  g.moveTo(0.152 * L, -0.056 * L);
+  g.quadraticCurveTo((pollX + 0.10) * L, (pollY + 0.30) * L, (pollX + 0.14) * L, (pollY + 0.14) * L);
+  g.stroke();
+
+  // 手
+  g.fillStyle = '#e8bd94';
+  g.beginPath();
+  g.arc(0.156 * L, -0.052 * L, 0.023 * L, 0, Math.PI * 2);
+  g.fill();
+
+  // 頭（ヘルメット＋ゴーグル）
+  g.save();
+  g.translate(0.062 * L, -0.238 * L);
+  g.rotate(lean * 0.5);
+
+  // 帽体
+  g.fillStyle = sLight;
+  g.beginPath();
+  g.arc(0, 0, 0.055 * L, Math.PI * 1.00, Math.PI * 2.00);
+  g.closePath();
+  g.fill();
+  // つば
+  g.fillStyle = shade(silk, 0.42);
+  g.beginPath();
+  g.ellipse(0.030 * L, 0.002 * L, 0.052 * L, 0.013 * L, -0.12, 0, Math.PI * 2);
+  g.fill();
+  // 頬
+  g.fillStyle = '#e8bd94';
+  g.beginPath();
+  g.ellipse(0.004 * L, 0.024 * L, 0.036 * L, 0.030 * L, 0, 0, Math.PI * 2);
+  g.fill();
+  // ゴーグル
+  g.fillStyle = 'rgba(180,225,255,0.90)';
+  g.beginPath();
+  g.ellipse(0.020 * L, 0.016 * L, 0.036 * L, 0.020 * L, 0.08, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = '#37474f';
+  g.lineWidth = 0.008 * L;
+  g.stroke();
+  // ゴーグルの反射
+  g.fillStyle = 'rgba(255,255,255,0.75)';
+  g.beginPath();
+  g.ellipse(0.008 * L, 0.010 * L, 0.011 * L, 0.006 * L, 0.2, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+
+  // ムチ（右手）
+  if (moving) {
+    const whipOut = Math.max(0, Math.sin(t * 1.9)) ;
+    g.strokeStyle = '#c62828';
+    g.lineWidth = 0.012 * L;
+    g.beginPath();
+    g.moveTo(0.040 * L, -0.120 * L);
+    g.lineTo((0.105 + whipOut * 0.075) * L, (-0.185 - whipOut * 0.075) * L);
+    g.stroke();
+  }
+
+  g.restore();
+}
+
+// 全馬描画
+function drawHorses() {
+  // カメラの基底（project と同じ定義）
+  const cyw = Math.cos(cam.yaw), syw = Math.sin(cam.yaw);
+  const cpw = Math.cos(cam.pitch), spw = Math.sin(cam.pitch);
+  const camRx = cyw,  camRz = -syw;
+  const camFx = syw * cpw, camFz = cyw * cpw;
+
+  const list = [];
+  for (let i = 0; i < horses.length; i++) {
+    const h = horses[i];
+    if (!h.isParticipating) continue;
+    const p = getTrackPos(h.d, h.laneOffset);
+    const pr = project(p.x, 0, p.z);
+    if (!pr) continue;
+
+    // 馬の向き＝コースの接線方向（カメラ右方向への成分で判定）
+    const dir = travelDir(h.d);
+    const dotR = dir.x * camRx + dir.z * camRz;   // 画面右への成分
+    const dotF = dir.x * camFx + dir.z * camFz;   // 奥行き成分
+
+    // 正対（dotR≈0）のときに向きがパタつかんよう、前回の向きを保持する
+    if (h._facing === undefined) h._facing = dotR >= 0 ? 1 : -1;
+    else if (Math.abs(dotR) > 0.12) h._facing = dotR >= 0 ? 1 : -1;
+
+    list.push({
+      h: h,
+      pr: pr,
+      facing: h._facing,
+      // 真横=1.0 / 正対=0.34 で体長を縮める（遠近の見え方）
+      squash: clamp(Math.abs(dotR) * 1.12, 0.34, 1),
+      scaleF: clamp(1 + dotF * 0.05, 0.95, 1.05),
+      d: pr.d
+    });
+  }
+  list.sort(function (a, b) { return b.d - a.d; });
+
+  for (const o of list) {
+    const h = o.h;
+    const L = clamp(o.pr.s * 46 * o.scaleF, 11, 700);
+    const moving = h.speed > 0.6;
+    const gallop = h.speed > 7.5;
+
+    g.save();
+    g.translate(o.pr.x, o.pr.y);
+
+    // 影
+    g.save();
+    g.globalAlpha = 0.32;
+    g.fillStyle = '#000';
+    g.beginPath();
+    g.ellipse(0, 0, L * 0.46 * o.squash, L * 0.075, 0, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+
+    // スキル発光
+    if (h.skillTimer > 0) {
+      g.save();
+      g.globalAlpha = 0.28 + Math.sin(performance.now() * 0.012) * 0.16;
+      const rg = g.createRadialGradient(0, -L * 0.5, 0, 0, -L * 0.5, L * 0.85);
+      rg.addColorStop(0, 'rgba(255,214,64,0.95)');
+      rg.addColorStop(1, 'rgba(255,214,64,0)');
+      g.fillStyle = rg;
+      g.beginPath();
+      g.arc(0, -L * 0.5, L * 0.85, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+
+    // 馬体（進行方向がカメラに正対するほど横に縮む）
+    g.save();
+    g.scale(o.facing * o.squash, 1);
+    drawHorseBody(L, h.legAngle, moving, h.coat || '#8d5524', h.silk || '#e53935',
+      { gallop: gallop });
+    g.restore();
+
+    // 馬番＋馬名
+    if (o.pr.s > 18) {
+      const fs = clamp(o.pr.s * 0.9, 9, 15);
+      g.save();
+      g.font = 'bold ' + fs + 'px sans-serif';
+      g.textAlign = 'center';
+      const label = h.id + ' ' + h.name;
+      const tw = g.measureText(label).width;
+      g.fillStyle = 'rgba(0,0,0,0.62)';
+      g.fillRect(-tw / 2 - 5, L * 0.06, tw + 10, fs * 1.45);
+      g.fillStyle = h.isMyHorse ? '#ffd23f' : '#eceff1';
+      g.fillText(label, 0, L * 0.06 + fs * 1.1);
+      g.restore();
+    }
+
+    g.restore();
+  }
+}
+
+function drawDust() {
+  for (const h of horses) {
+    if (!h.isParticipating || h.dustTimer <= 0) continue;
+    const p = getTrackPos(h.d - 90, h.laneOffset);
+    const pr = project(p.x, 8, p.z);
+    if (!pr) continue;
+    g.save();
+    g.globalAlpha = clamp(h.dustTimer / 90, 0, 1) * 0.45;
+    g.fillStyle = '#d7c6a8';
+    const L = clamp(pr.s * 30, 8, 300);
+    for (let i = 0; i < 5; i++) {
+      const ox = Math.sin(i * 2.1 + h.d * 0.012) * L * 0.26;
+      const oy = -Math.abs(Math.cos(i * 1.7 + h.d * 0.014)) * L * 0.26;
+      g.beginPath();
+      g.arc(pr.x + ox, pr.y + oy, L * (0.06 + i * 0.018), 0, Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+  }
+}
+
+function drawPodiumFx() {
+  const t = (performance.now() - podiumStartTime) * 0.001;
+  g.save();
+  const grad = g.createLinearGradient(0, H * 0.25, 0, H);
+  grad.addColorStop(0, 'rgba(255,210,63,0)');
+  grad.addColorStop(1, 'rgba(255,150,0,0.20)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 70; i++) {
+    const seed = i * 137.5;
+    const x = (seed * 7 + t * 70) % W;
+    const y = (seed * 11 + t * 160) % H;
+    const s = 3 + (i % 5) * 2;
+    g.fillStyle = ['#ffd23f', '#4dd0e1', '#ef5350', '#66bb6a'][i % 4];
+    g.globalAlpha = 0.55;
+    g.fillRect(x, y, s, s * 2);
+  }
+  g.restore();
+}
+
+// ------------------------------------------------------------
+// 10. カメラ（元仕様のカメラワークを2D投影で再現）
+// ------------------------------------------------------------
+function lookAtCam(cx, cy, cz, tx, ty, tz) {
+  cam.x = cx; cam.y = cy; cam.z = cz;
+  const dx = tx - cx, dy = ty - cy, dz = tz - cz;
+  const dh = Math.hypot(dx, dz) || 1;
+  cam.yaw = Math.atan2(dx, dz);
+  cam.pitch = Math.atan2(cy - ty, dh);
+}
+
+// ============================================================
+// カメラのガタつき対策
+//   原因は「毎フレーム先頭馬を選び直していた」こと。
+//   1位と2位が競り合うと追尾対象が数フレームごとに入れ替わり、
+//   注視点がワールド座標で数百単位ジャンプして画面がガタついてた。
+//
+//   1) 追尾馬はヒステリシス付きで選ぶ
+//      FOCUS_MARGIN 以上離れて、それが FOCUS_HOLD フレーム続いた時だけ乗り換え
+//   2) 乗り換え時は前の馬との間を補間（注視点を飛ばさない）
+//   3) カメラワークの切り替えは「極座標で」クロスフェード
+//      （被写体の周りを弧を描いて回るので、位置も向きも飛ばない）
+//   4) 注視点の平滑化＋首振り速度の上限（急なワンフレーム反転を殺す）
+//   5) 3Dカメラは毎フレーム瞬間移動させず減衰追従にする
+// ============================================================
+const FOCUS_MARGIN      = 28;    // この差を超えて先行されたら乗り換えを検討
+const FOCUS_HOLD        = 12;    // 何フレーム連続で先行されたら乗り換えるか
+const FOCUS_MIX_FRAMES  = 30;    // 乗り換え時の注視点の補間フレーム数
+const SHOT_FRAMES       = 1200;  // 1つのカメラワークの長さ（3倍でゆっくり）
+const SHOT_BLEND_FRAMES = 80;    // カメラワーク切り替えのクロスフェード
+const LOOKBACK_MARGIN   = 150;   // 独走（見返しカメラ）判定の差
+const LOOKBACK_HOLD     = 24;    // 独走判定を確定させる連続フレーム数
+const AIM_SMOOTH        = 0.20;  // 注視点の平滑化
+const MAX_YAW_STEP      = 0.075; // 1フレームの首振り上限（約4.3度）
+const MAX_PITCH_STEP    = 0.05;  // 1フレームの上下上限
+
+const camState = {
+  focusId: -1, prevFocusId: -1, challenger: 0, mix: 1,
+  shot: -1, blend: 1, fromPolar: null, curPolar: null,
+  dokusou: 0,
+  aimInit: false, aimX: 0, aimY: 24, aimZ: 0,
+  yawInit: false, lastYaw: 0, lastPitch: 0,
+  smooth3d: { x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, init: false }
+};
+let camTargetFrame = -1, camTargetCache = null;
+
+function resetCameraState() {
+  camState.focusId = -1; camState.prevFocusId = -1; camState.challenger = 0;
+  camState.mix = 1; camState.shot = -1; camState.blend = 1;
+  camState.fromPolar = null; camState.curPolar = null; camState.dokusou = 0;
+  camState.aimInit = false; camState.yawInit = false;
+  camState.lastYaw = cam.yaw; camState.lastPitch = cam.pitch;
+  camState.smooth3d.init = false;
+  camTargetFrame = -1; camTargetCache = null;
+}
+
+function easeInOut(t) {
+  t = clamp(t, 0, 1);
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+function lerpAngle(a, b, t) {
+  let d = b - a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
+}
+
+// 追尾する馬を決める（首位争いの細かい入れ替わりは無視）
+function pickFocusHorse(sorted) {
+  const leader = sorted[0];
+  if (camState.focusId > 0) {
+    let cur = null;
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].id === camState.focusId) { cur = sorted[i]; break; }
+    }
+    if (cur) {
+      if (cur !== leader && (leader.d - cur.d) > FOCUS_MARGIN) {
+        camState.challenger++;
+        if (camState.challenger < FOCUS_HOLD) return cur;   // まだ乗り換えない
+      } else {
+        camState.challenger = 0;
+        return cur;                                          // 現状維持
+      }
+    }
+  }
+  if (camState.focusId !== leader.id) {
+    camState.prevFocusId = camState.focusId;
+    camState.mix = 0;
+  }
+  camState.focusId = leader.id;
+  camState.challenger = 0;
+  return leader;
+}
+
+// 注視点（乗り換え中は前の馬との間を補間して狙いを飛ばさない）
+function getFocusAimPoint(sorted) {
+  const fh = pickFocusHorse(sorted);
+  const p = getTrackPos(fh.d, fh.laneOffset);
+  let ax = p.x, az = p.z;
+  if (camState.mix < 1) {
+    camState.mix = Math.min(1, camState.mix + 1 / FOCUS_MIX_FRAMES);
+    if (camState.prevFocusId > 0) {
+      let ph = null;
+      for (let i = 0; i < sorted.length; i++) {
+        if (sorted[i].id === camState.prevFocusId) { ph = sorted[i]; break; }
+      }
+      if (ph) {
+        const pp = getTrackPos(ph.d, ph.laneOffset);
+        const e = easeInOut(camState.mix);
+        ax = lerp(pp.x, p.x, e);
+        az = lerp(pp.z, p.z, e);
+      }
+    }
+  }
+  return { x: ax, y: 24, z: az, horse: fh, angle: p.angle };
+}
+
+// ---- カメラワーク定義（注視点からの相対オフセット） ----
+//   f: 進行方向成分 / r: 走路の右方向成分 / y: 高さ
+//   lf,lr,ly: 注視点の先読みオフセット
+const SHOT_DEF = [
+  { f: -180,  r: 1050, y: 265, lf: 100,  lr: 0, ly: 24 },  // 0: 外側ハイ
+  { f: -1350, r: 270,  y: 205, lf: 300,  lr: 0, ly: 22 },  // 1: 真後ろ
+  { f: 180,   r: 680,  y: 175, lf: -100, lr: 0, ly: 22 },  // 2: 外側ロー
+  { f: 700,   r: 140,  y: 200, lf: -700, lr: 0, ly: 24 },  // 3: 見返し
+  { f: 813,   r: -813, y: 205, lf: 0,    lr: 0, ly: 24 }   // 4: 序盤追走
+];
+
+function shotToPolar(i) {
+  const d = SHOT_DEF[clamp(i, 0, SHOT_DEF.length - 1)];
+  return {
+    d: Math.hypot(d.f, d.r), th: Math.atan2(d.r, d.f), y: d.y,
+    ld: Math.hypot(d.lf, d.lr), lth: Math.atan2(d.lr, d.lf), ly: d.ly
+  };
+}
+
+function blendPolar(a, b, t) {
+  return {
+    d: lerp(a.d, b.d, t), th: lerpAngle(a.th, b.th, t), y: lerp(a.y, b.y, t),
+    ld: lerp(a.ld, b.ld, t), lth: lerpAngle(a.lth, b.lth, t), ly: lerp(a.ly, b.ly, t)
+  };
+}
+
+function polarToCam(p, aim, bob) {
+  const a = aim.angle;
+  const fX = -Math.sin(a), fZ = Math.cos(a);   // 進行方向
+  const rX = Math.cos(a), rZ = Math.sin(a);    // 右方向
+  const f = p.d * Math.cos(p.th), r = p.d * Math.sin(p.th);
+  // 注視点の先読みは「進行方向」基準で足す（位置と一緒に回すと画面が回るので分離）
+  const lf = p.ld * Math.cos(p.lth), lr = p.ld * Math.sin(p.lth);
+  return {
+    x: aim.x + fX * f + rX * r, y: p.y + bob, z: aim.z + fZ * f + rZ * r,
+    tx: aim.x + fX * lf + rX * lr, ty: p.ly, tz: aim.z + fZ * lf + rZ * lr
+  };
+}
+
+// ショット（カメラワーク）を決める
+function updateShotState(sorted, lead, elapsed) {
+  if (sorted.length > 1 && (lead.d - sorted[1].d) > LOOKBACK_MARGIN) {
+    camState.dokusou = Math.min(camState.dokusou + 1, LOOKBACK_HOLD);
+  } else {
+    camState.dokusou = Math.max(camState.dokusou - 1, 0);
+  }
+  let want;
+  if (elapsed >= 240 && elapsed < 540) {
+    want = 4;                                   // 序盤追走カメラ
+  } else {
+    const mode = isFinished ? 0 : Math.floor(frameCount / SHOT_FRAMES) % 3;
+    want = mode;
+    if (mode === 2 && !isFinished && camState.dokusou >= LOOKBACK_HOLD) want = 3;
+  }
+  const wantPolar = shotToPolar(want);
+  if (camState.shot !== want) {
+    camState.fromPolar = camState.curPolar ? camState.curPolar : wantPolar;
+    camState.shot = want;
+    camState.blend = 0;
+  }
+  if (camState.blend < 1) camState.blend = Math.min(1, camState.blend + 1 / SHOT_BLEND_FRAMES);
+  const e = easeInOut(camState.blend);
+  const pol = camState.blend < 1 ? blendPolar(camState.fromPolar, wantPolar, e) : wantPolar;
+  camState.curPolar = pol;
+  return pol;
+}
+
+// レース中のカメラ目標（2D/3D共用・1フレーム1回だけ計算）
+function getRaceCamTarget() {
+  if (camTargetFrame === frameCount && camTargetCache) return camTargetCache;
+  const sorted = sortHorses();
+  if (!sorted.length) return null;
+  const aim = getFocusAimPoint(sorted);
+  const elapsed = frameCount - raceStartTime;
+  const pol = updateShotState(sorted, sorted[0], elapsed);
+  const bob = Math.sin(aim.horse.legAngle * 2) * 2.2;
+  const t = polarToCam(pol, aim, bob);
+  t.aim = aim;
+  t.sorted = sorted;
+  camTargetFrame = frameCount;
+  camTargetCache = t;
+  return t;
+}
+
+// カメラを目標位置へ寄せ、その「今いる位置」から目標点をきっちり見る。
+// 注視点は平滑化し、首振りは1フレームあたりの上限を設けて急な反転を殺す。
+function lerpCamTo(tx, ty, tz, lx, ly, lz, k) {
+  cam.x = lerp(cam.x, tx, k);
+  cam.y = lerp(cam.y, ty, k);
+  cam.z = lerp(cam.z, tz, k);
+  aimAt(lx, ly, lz);
+}
+
+function aimAt(lx, ly, lz) {
+  if (!camState.aimInit) {
+    camState.aimX = lx; camState.aimY = ly; camState.aimZ = lz; camState.aimInit = true;
+  } else {
+    camState.aimX = lerp(camState.aimX, lx, AIM_SMOOTH);
+    camState.aimY = lerp(camState.aimY, ly, AIM_SMOOTH);
+    camState.aimZ = lerp(camState.aimZ, lz, AIM_SMOOTH);
+  }
+  const dx = camState.aimX - cam.x, dz = camState.aimZ - cam.z;
+  const dh = Math.hypot(dx, dz) || 1;
+
+  if (!camState.yawInit) {
+    camState.yawInit = true;
+    camState.lastYaw = cam.yaw;
+    camState.lastPitch = cam.pitch;
+  }
+
+  // 目標の向き
+  const wantYaw = Math.atan2(dx, dz);
+  let dyaw = wantYaw - camState.lastYaw;
+  while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+  while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+  dyaw = clamp(dyaw, -MAX_YAW_STEP, MAX_YAW_STEP);
+  camState.lastYaw += dyaw;
+  cam.yaw = camState.lastYaw;
+
+  const wantPitch = Math.atan2(cam.y - camState.aimY, dh);
+  let dpitch = wantPitch - camState.lastPitch;
+  dpitch = clamp(dpitch, -MAX_PITCH_STEP, MAX_PITCH_STEP);
+  camState.lastPitch += dpitch;
+  cam.pitch = camState.lastPitch;
+}
+
+function updateCamera() {
+  const sorted = sortHorses();
+  if (sorted.length === 0) return;
+  const leadHorse = sorted[0];
+  const elapsed = frameCount - raceStartTime;
+
+  // ---- パドック（発走前）：ゲートを斜め前から見る ----
+  if (!isRacing && !isFinished) {
+    const g0 = getTrackPos(0, 0);
+    lerpCamTo(g0.x + 230, 165, g0.z - 620, g0.x, 26, g0.z + 40, 0.06);
+    return;
+  }
+
+  // ---- リプレイ：進行方向の斜め外側から追いかける ----
+  if (isReplaying) {
+    const t0 = (top3Horses && top3Horses[0]) ? top3Horses[0] : leadHorse;
+    const tp = getTrackPos(t0.d, t0.laneOffset);
+    const dir = travelDir(t0.d);
+    const perpX = dir.z, perpZ = -dir.x;      // 走路の外側
+    lerpCamTo(
+      tp.x + dir.x * 250 + perpX * 330, 172,
+      tp.z + dir.z * 250 + perpZ * 330,
+      tp.x, 26, tp.z, 0.17
+    );
+    return;
+  }
+
+  // ---- ウイニングラン：勝ち馬を外側から並走して追う ----
+  if (isPodium) {
+    const w = winner || leadHorse;
+    const wp = getTrackPos(w.d, w.laneOffset);
+    const dir = travelDir(w.d);
+    const perpX = dir.z, perpZ = -dir.x;
+    lerpCamTo(
+      wp.x + perpX * 400 - dir.x * 110, 152,
+      wp.z + perpZ * 400 - dir.z * 110,
+      wp.x, 30, wp.z, 0.05
+    );
+    return;
+  }
+
+  // ---- 結果表示中：カメラを止める ----
+  if (isResultFlash) return;
+
+  // ---- 序盤：ゲート前から回り込む ----
+  if (elapsed < 240) {
+    const p = clamp(elapsed / 240, 0, 1);
+    const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    const radius = lerp(820, 1000, ease);
+    const ang = lerp(Math.atan2(-200, 1200), Math.PI * 0.75, ease);
+    lerpCamTo(
+      Math.cos(ang) * radius, lerp(230, 205, ease), Math.sin(ang) * radius,
+      0, 24, lerp(120, 0, ease), 0.09
+    );
+    return;
+  }
+
+  const t = getRaceCamTarget();
+  if (!t) return;
+  const aim = t.aim;
+
+  // ---- ゴール前：先頭を追尾するフィニッシュカメラ ----
+  if (leadHorse.d > totalDistance - 1100) {
+    const fp = getTrackPos(totalDistance, 0);
+    const followZ = clamp(aim.z, fp.z - 1000, fp.z + 900);
+    lerpCamTo(
+      fp.x - 640, 178, followZ - 330,
+      aim.x, 26, aim.z - 40, 0.14
+    );
+    return;
+  }
+
+  // ---- 通常のカメラワーク（極座標クロスフェード込み） ----
+  lerpCamTo(t.x, t.y, t.z, t.tx, t.ty, t.tz, 0.06);
+}
+
+function updateHUD() {
+  el('money').textContent = '所持金: ' + fmt(myMoney) + ' G';
+
+  if (isRegistering || isBreeding) {
+    el('timer').textContent = '';
+    el('raceinfo').textContent = '';
+    el('hstats').textContent = '';
+    return;
+  }
+
+  if (!isRacing && !isFinished) {
+    el('timer').textContent = 'パドック中 — 出馬表を確認してスタートしてください';
+    el('timer').style.color = '#ffb74d';
+  } else if (isRacing && !isFinished) {
+    el('timer').textContent = 'レース中';
+    el('timer').style.color = '#4dd0e1';
+  } else if (isFinished) {
+    el('timer').textContent = 'レース終了';
+    el('timer').style.color = '#ffd23f';
+  }
+
+  const ri = getRaceInfo();
+  el('raceinfo').textContent = ri.name + ' [' + ri.grade + '] ／ 1着 ' + fmt(ri.prize) + ' G' +
+    (isPlayerEntered ? ' ／ 出走中' : '');
+
+  // 自分の馬の情報は「今このレースに出走してる時」だけ出す
+  const myInRace = isPlayerEntered && myHorseData;
+  if (myInRace) {
+    const h = myHorseData;
+    el('hstats').innerHTML =
+      '<b style="color:#ffd23f">' + h.name + '</b> ' + h.runType +
+      ' ｜ 調子 <span class="' + COND_CLS[condIdx(h.condition)] + '">' + h.condition + '</span><br>' +
+      'SP ' + h.baseSpeed.toFixed(2) + ' ／ 瞬発 ' + h.spurtPower.toFixed(2) +
+      ' ／ ST ' + h.guts.toFixed(2) + ' ｜ 育成 ' + h.trainingCount + '/30<br>' +
+      '通算 ' + (h.wins || 0) + '勝 ／ 獲得賞金 ' + fmt(h.prizeMoney || 0) + ' G';
+  } else {
+    el('hstats').textContent = '';
+  }
+}
+
+function startRaceNow() {
+  if (isRacing || isFinished) return;
+  if (!horses || horses.length === 0) return;
+  isRacing = true;
+  isFinished = false;
+  isTrainingMode = false;
+  hasTrained = false;
+  raceStartTime = frameCount;
+  syncPanels();            // レース中は出馬表を隠す
+  commentaryLog = ['各馬ゲートイン完了。ゲートが開きました！レーススタート！'];
+  const cm = el('comment');
+  if (cm) cm.innerHTML = commentaryLog.join('<br>');
+  updatePanel();
+  updateHUD();
+}
+
+let panelsHidden = false;   // 育成・登録画面などでUIを畳んでるか
+
+// 画面の出し分けを一元化
+//  育成/登録/繁殖 … 全部隠す
+//  パドック       … 左=出馬表 / 右=馬券（＋フル画面オーバーレイ）
+//  レース中/終了  … 出馬表は隠す / 馬券パネルだけ残す
+function syncPanels() {
+  const card = el('cardPanel');
+  const bet  = el('betPanel');
+  const off = panelsHidden || isRegistering || isBreeding;
+
+  // パドック中（発走前）は左パネルを必ず出す
+  const cardHidden = off || isRacing || isFinished;
+  if (card) card.classList.toggle('hide', cardHidden);
+
+  // 右の馬券パネルはレース中だけ隠す
+  if (bet)  bet.classList.toggle('hide', off || isRacing);
+
+  const b = document.body;
+  if (b && b.classList) b.classList.toggle('racing', !!isRacing && !off);
+}
+
+// 旧 hidePanels は互換のため残す
+function hidePanels(v) {
+  panelsHidden = !!v;
+  syncPanels();
+}
+
+function updatePanel() {
+  const cardBody = el('cardBody');
+  const betBody = el('betBody');
+  if (!cardBody || !betBody) return;
+  if (isRegistering || isBreeding) { cardBody.innerHTML = ''; betBody.innerHTML = ''; return; }
+  cardBody.innerHTML = buildCardHTML();
+  betBody.innerHTML = buildBetHTML();
+  bindPanel();
+  syncPanels();
+}
+
+function buildCardHTML() {
+  const ri = getRaceInfo();
+  const WAKU_BG  = ['#f5f5f5', '#212121', '#e53935', '#1e88e5', '#fdd835', '#43a047', '#fb8c00', '#ec407a'];
+  const WAKU_FG  = ['#111111', '#ffffff', '#ffffff', '#ffffff', '#3e2723', '#ffffff', '#ffffff', '#ffffff'];
+
+  const popRanks = horses.slice().sort(function (a, b) {
+    return a.popularity - b.popularity;
+  });
+  const rankMarks = {};
+  popRanks.forEach(function(h, i) {
+    if (i === 0) rankMarks[h.id] = '◎';
+    else if (i === 1) rankMarks[h.id] = '○';
+    else if (i === 2) rankMarks[h.id] = '▲';
+  });
+
+  const sorted = horses.slice().sort(function (a, b) { return a.id - b.id; });
+
+  let html = '';
+  html += '<div class="np-head"><b>LET\'S HORSES 競馬新聞</b>' +
+    '<span>' + ri.name + ' [' + ri.grade + ']</span></div>';
+  html += '<div class="np-sub">1着賞金 ' + fmt(ri.prize) + 'G ／ 出走料 ' + fmt(ri.fee) +
+    'G ／ ' + packState + '・' + racePace + ' ／ ' +
+    (isRacing ? 'レース中' : (isFinished ? '確定' : '発走前')) + '</div>';
+
+  html += '<div class="np-table">';
+  // グリッド：枠(22px) 印(28px) 馬名(2fr=広め) 脚質(44px) 調子(40px) 人気(36px) オッズ(50px) 所持スキル(1fr)
+  html += '<div class="np-row np-hd" style="grid-template-columns:20px 20px 26px minmax(170px,3fr) 44px 40px 36px 50px minmax(90px,1fr);">' +
+    '<span style="text-align:center">枠</span><span style="text-align:center">馬番</span>' +
+    '<span style="text-align:center">印</span>' +
+    '<span>馬名</span><span style="text-align:center">脚質</span>' +
+    '<span style="text-align:center">調子</span><span style="text-align:center">人気</span>' +
+    '<span style="text-align:right">オッズ</span>' +
+    '<span style="text-align:center">所持スキル</span></div>';
+
+  for (const h of sorted) {
+    const wk = Math.min(8, Math.ceil(h.id / 2));
+    const rtIdx = RUN_TYPES.indexOf(h.runType);
+    const mine = h.isMyHorse ? ' mine' : '';
+    const skillText = (h.skills && h.skills.length)
+      ? h.skills.map(function(s) { return s.name; }).join('、')
+      : '-';
+    html += '<div class="np-row' + mine + '" style="grid-template-columns:20px 20px 26px minmax(170px,3fr) 44px 40px 36px 50px minmax(90px,1fr);">' +
+      '<span class="np-w" style="background:' + WAKU_BG[wk - 1] + ';color:' + WAKU_FG[wk - 1] + '">' +
+        wk + '</span>' +
+      '<span class="np-num">' + h.id + '</span>' +
+      '<span class="np-rank" style="color:#e53935;font-weight:bold;text-align:center">' + (rankMarks[h.id] || '') + '</span>' +
+      '<span class="np-name">' + h.name + (h.isMyHorse ? ' ★' : '') +
+        (h.isMonster ? ' <em style="color:#ef5350">怪物</em>' : '') +
+        (h.isMatch ? ' <em style="color:#ff8a65">一騎</em>' : '') +
+      '</span>' +
+      '<span class="np-rt" style="text-align:center">' +
+        (h.runType === '大逃げ' ? '大逃' : h.runType) + '</span>' +
+      '<span class="np-cond ' + COND_CLS[condIdx(h.condition)] + '" style="text-align:center">' + h.condition + '</span>' +
+      '<span class="np-pop" style="text-align:center">' + h.popularity + '</span>' +
+      '<span class="np-odds" style="text-align:right">' + h.oddsStr + '</span>' +
+      '<span style="text-align:center;font-size:10px;color:#b0bec5;">' + skillText + '</span>' +
+      '</div>';
+  }
+  html += '</div>';
+
+  if (!isRacing && !isFinished) {
+    html += '<div class="np-foot">「出馬表決定してスタート」で発走やで</div>';
+  }
+  return html;
+}
+
+
+function buyShare(id, amount) {
+  if (isRacing || isFinished) return;
+  const h = horses.find(function (x) { return x.id === id; });
+  if (!h) return;
+  const ri = getRaceInfo();
+  const cost = Math.floor((ri.prize * 0.6) / h.odds) * amount;
+  if (myMoney < cost) { toast('メダルが足りません！'); return; }
+  myMoney -= cost;
+  ownedShares[id] = (ownedShares[id] || 0) + amount;
+  updateHUD();
+  updatePanel();
+}
+
+function buildBetHTML() {
+  const raceDone = isRacing || isFinished;
+  const need = BET_NEED[betType];
+  const isFormation = need >= 2;
+  const picks = getBetPicks();
+  if (isFormation) {
+    if (picks.length !== need) betPicksByType[betType] = new Array(need).fill(0);   // 未選択は 0 で枠を固定
+  } else {
+    betPicksByType[betType] = picks.filter(function (x) { return x > 0; }).slice(0, need);
+  }
+  let html = '';
+
+  // ---- レース中／終了後：馬選択のUIは畳んで、状況と購入済みだけ出す ----
+  if (raceDone) {
+    html += '<div class="raceState">' +
+      (isFinished ? 'レース終了 — 結果を確認してな' : 'レース中 — 馬券の受付は終了やで') +
+      '</div>';
+    html += '<div class="tickets"><div class="betlabel">購入済み（' + tickets.length + '件）</div>';
+    if (tickets.length === 0) {
+      html += '<div class="empty">今回は買うてへんかったな</div>';
+    } else {
+      tickets.forEach(function (t) {
+        html += '<div class="ticket"><span>' + t.type + ' <span class="tk">' +
+          t.picks.join('-') + '</span> ' + t.odds.toFixed(1) + '倍</span>' +
+          '<span>' + fmt(t.stake) + ' G</span></div>';
+      });
+      const totalStake0 = tickets.reduce(function (a, t) { return a + t.stake; }, 0);
+      html += '<div style="text-align:right;font-size:11px;color:#8fa4b3;margin-top:5px">' +
+        '合計 ' + fmt(totalStake0) + ' G</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // パドック中はここからも発走できる
+  if (!raceDone && horses.length > 0) {
+    html += '<div class="raceStartRow">' +
+      '<button class="raceStart" data-start="1">出馬表決定してスタート</button>' +
+      '</div>';
+  }
+
+  // 券種選択
+  html += '<div class="betsec"><div class="betlabel">券種</div><div class="bettypes" id="betTypes">';
+  for (const t of BET_TYPES) {
+    html += '<div data-bt="' + t + '" class="' + (t === betType ? 'on' : '') + '">' + t + '</div>';
+  }
+  html += '</div></div>';
+
+  // 馬選択: 番号順（1番〜12番）
+  const sortedByNum = horses.slice().sort(function (a, b) { return a.id - b.id; });
+
+  if (!isFormation) {
+    // 単勝・複勝: 従来通り1頭選択
+    const isFuku = betType === '複勝';
+    html += '<div class="betsec"><div class="betlabel">馬を選ぶ（1頭）｜下段は' + (isFuku ? '複勝' : '新聞と同じ単勝') + 'オッズ</div><div class="horsegrid" id="horseGrid">';
+    for (const h of sortedByNum) {
+      const on = getBetPicks().indexOf(h.id) >= 0 ? ' on' : '';
+      const me = h.isMyHorse ? ' me' : '';
+      let dispOdds = h.oddsStr;
+      if (isFuku) {
+        const fo = calcOdds('複勝', [h.id]);
+        dispOdds = fo < 10 ? fo.toFixed(1) : String(Math.round(fo));
+      }
+      html += '<div data-hid="' + h.id + '" class="' + on + me + '">' +
+        '<span class="hn">' + h.id + '</span>' +
+        '<span class="ho">' + dispOdds + '</span></div>';
+    }
+    html += '</div></div>';
+  } else {
+    // 馬連以降: フォーメーション式
+    const LABELS = {
+      '馬連':   ['1頭目（軸）', '2頭目（相手）'],
+      'ワイド': ['1頭目（軸）', '2頭目（相手）'],
+      '馬単':   ['1着', '2着'],
+      '3連複':  ['1頭目（軸）', '2頭目（相手）', '3頭目（相手）'],
+      '3連単':  ['1着', '2着', '3着']
+    };
+    const labels = LABELS[betType] || ['1頭目', '2頭目', '3頭目'];
+    const picked = getBetPicks();
+
+    for (let pos = 0; pos < need; pos++) {
+      html += '<div class="form-label">' + labels[pos] + 'を選ぶ</div>';
+      html += '<div class="form-box" data-formpos="' + pos + '">';
+      for (const h of sortedByNum) {
+        const alreadyPickedAtOther = picked.indexOf(h.id) >= 0 && picked.indexOf(h.id) !== pos;
+        const on = picked[pos] === h.id ? ' on' : '';
+        const me = h.isMyHorse ? ' me' : '';
+        const dim = alreadyPickedAtOther ? ' dim' : '';
+        html += '<div data-fhid="' + h.id + '" data-fpos="' + pos + '" class="' + on + me + dim + '">' + h.id + '</div>';
+      }
+      html += '</div>';
+    }
+
+    // 選択サマリー
+    html += '<div class="form-summary">選択: ' +
+      picked.map(function(pid, i) { return '<b>' + (i+1) + '.</b> ' + (pid ? '#' + pid : '未選択'); }).join(' ') +
+      '</div>';
+  }
+
+  // オッズ表示
+  const curPicks = getBetPicks();
+  if (curPicks.length === need && curPicks.every(function(x) { return x > 0; })) {
+    const od = calcOdds(betType, curPicks.slice());
+    const pay = Math.floor(betStake * od);
+    html += '<div class="oddbox"><span>' + betType + ' ' + curPicks.join('-') + '</span>' +
+      '<b>' + od.toFixed(1) + ' 倍</b></div>';
+    html += '<div style="text-align:right;font-size:11px;color:#8fa4b3;margin-top:4px">' +
+      betStake + ' G → ' + fmt(pay) + ' G</div>';
+  } else {
+    const remain = isFormation
+      ? curPicks.filter(function(x) { return !x; }).length
+      : need - curPicks.length;
+    html += '<div class="oddbox"><span>残り ' + remain +
+      ' 頭選んでな</span><b>—</b></div>';
+  }
+
+  // 金額
+  html += '<div class="betsec" style="margin-top:10px"><div class="betlabel">金額</div>' +
+    '<div class="stakes" id="stakes">';
+  for (const s of STAKES) {
+    html += '<div data-st="' + s + '" class="' + (s === betStake ? 'on' : '') + '">' + fmt(s) + '</div>';
+  }
+  html += '</div></div>';
+
+  const canBuy = !raceDone && curPicks.length === need &&
+    curPicks.every(function(x) { return x > 0; }) && myMoney >= betStake;
+  html += '<button class="betbtn" id="btnBet"' +
+    (canBuy ? '' : ' disabled') +
+    '>馬券を買う</button>';
+
+  // 購入済み
+  html += '<div class="tickets"><div class="betlabel">購入済み（' + tickets.length + '件）</div>';
+  if (tickets.length === 0) {
+    html += '<div class="empty">まだ買ってへんで</div>';
+  } else {
+    tickets.forEach(function (t, i) {
+      html += '<div class="ticket"><span>' + t.type + ' <span class="tk">' +
+        t.picks.join('-') + '</span> ' + t.odds.toFixed(1) + '倍</span>' +
+        '<span>' + fmt(t.stake) + ' G' +
+        (raceDone ? '' : ' <button data-del="' + i + '" style="background:#ef5350;' +
+          'padding:2px 6px;font-size:10px;margin-left:6px;border-radius:4px">取消</button>') +
+        '</span></div>';
+    });
+    const totalStake = tickets.reduce(function (a, t) { return a + t.stake; }, 0);
+    html += '<div style="text-align:right;font-size:11px;color:#8fa4b3;margin-top:5px">' +
+      '合計 ' + fmt(totalStake) + ' G</div>';
+  }
+  html += '</div>';
+
+  return html;
+}
+
+function bindPanel() {
+  // 馬券パネル側のスタート
+  const startRow = document.querySelector('.raceStartRow');
+  if (startRow) {
+    startRow.addEventListener('click', function (e) {
+      const st = e.target.closest('[data-start]');
+      if (st) { startRaceNow(); return; }
+    });
+  }
+
+  // 券種切り替え
+  const bt = el('betTypes');
+  if (bt) {
+    bt.addEventListener('click', function (e) {
+      const t = e.target.closest('[data-bt]');
+      if (!t) return;
+      betType = t.getAttribute('data-bt');
+      updatePanel();
+    });
+  }
+
+  // 単勝・複勝用: 1頭選択
+  const hg = el('horseGrid');
+  if (hg) {
+    hg.addEventListener('click', function (e) {
+      const t = e.target.closest('[data-hid]');
+      if (!t) return;
+      togglePick(parseInt(t.getAttribute('data-hid'), 10));
+    });
+  }
+
+  // フォーメーション用: 軸馬・相手馬を分けて選択（別枠の馬を押したら入れ替え）
+  const formBoxes = document.querySelectorAll('[data-formpos]');
+  formBoxes.forEach(function (box) {
+    box.addEventListener('click', function (e) {
+      const t = e.target.closest('[data-fhid]');
+      if (!t) return;
+      const pos = parseInt(t.getAttribute('data-fpos'), 10);
+      const hid = parseInt(t.getAttribute('data-fhid'), 10);
+      const need = BET_NEED[betType];
+      const fpicks = getBetPicks();
+      while (fpicks.length < need) fpicks.push(0);   // 未選択は 0 で埋める
+      const cur = fpicks.indexOf(hid);
+      if (cur === pos) {
+        fpicks[pos] = 0;                                // 同じ枠を再タップ → 解除
+      } else if (cur >= 0) {
+        fpicks[cur] = fpicks[pos];                    // 別枠にいた → 入れ替え
+        fpicks[pos] = hid;
+      } else {
+        fpicks[pos] = hid;
+      }
+      betPicksByType[betType] = fpicks;
+      updatePanel();
+    });
+  });
+
+  // 金額選択
+  const st = el('stakes');
+  if (st) {
+    st.addEventListener('click', function (e) {
+      const t = e.target.closest('[data-st]');
+      if (!t) return;
+      betStake = parseInt(t.getAttribute('data-st'), 10);
+      updatePanel();
+    });
+  }
+
+  // 馬券購入ボタン
+  const bb = el('btnBet');
+  if (bb) bb.addEventListener('click', buyTicket);
+
+  // 購入済み馬券の取消・一口馬主購入
+  const cardBody = el('cardBody');
+  const betBody = el('betBody');
+  [cardBody, betBody].forEach(function(body) {
+    if (!body) return;
+    body.querySelectorAll('[data-del]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        removeTicket(parseInt(b.getAttribute('data-del'), 10));
+      });
+    });
+    body.querySelectorAll('[data-buy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        buyShare(parseInt(b.getAttribute('data-buy'), 10),
+                 parseInt(b.getAttribute('data-n'), 10));
+      });
+    });
+  });
+}
+
+function toast(msg) {
+  const c = el('comment');
+  const old = c.innerHTML;
+  c.innerHTML = '⚠ ' + msg;
+  setTimeout(function () { c.innerHTML = old; }, 1800);
+}
+
+// ------------------------------------------------------------
+// 12. モーダル
+// ------------------------------------------------------------
+function showModal(html) {
+  el('mInner').innerHTML = html;
+  el('modal').classList.add('on');
+}
+function hideModal() {
+  el('modal').classList.remove('on');
+}
+
+// ------------------------------------------------------------
+// 13. 初期登録（3頭の候補から選ぶ：元仕様どおり）
+// ------------------------------------------------------------
+function showRegisterScreen() {
+  isRegistering = true;
+  isRacing = false;
+  isFinished = false;
+  isPodium = false;
+  isReplaying = false;
+  initialCandidates = [generateCandidate(1.0), generateCandidate(1.0), generateCandidate(1.0)];
+  selectedCand = 0;
+
+  let html = '<h1>LET\'S HORSES</h1>' +
+    '<div class="tag">あなたの馬で、日本一を目指せ。</div>' +
+    '<div style="text-align:center;color:#8fa4b3;font-size:13px;margin-bottom:14px">' +
+    '初期所持金 <b style="color:#ffd23f">' + fmt(myMoney) + ' G</b></div>';
+
+  html += '<div class="cands" id="cands">';
+  for (let i = 0; i < 3; i++) {
+    const c = initialCandidates[i];
+    html += '<div class="cand' + (i === 0 ? ' on' : '') + '" data-ci="' + i + '">' +
+      '<div class="t">タイプ: ' + c.runType + '</div>' +
+      '<div class="s"><span>SP</span><b>' + c.baseSpeed.toFixed(2) + '</b></div>' +
+      '<div class="s"><span>ST</span><b>' + c.guts.toFixed(2) + '</b></div>' +
+      '<div class="s"><span>瞬</span><b>' + c.spurtPower.toFixed(2) + '</b></div>' +
+      '<div class="s" style="color:#9575cd"><span>才能</span><b style="color:#b39ddb">ピーク ' + c.peak + '回</b></div>' +
+      '</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="fld"><label>あなたの馬の名前（カタカナ 2〜9文字）</label>' +
+    '<input id="inpName" maxlength="9" placeholder="例: サイレンスラン" autocomplete="off">' +
+    '<div class="hint">カタカナだけやで。ひらがな・漢字はあかん。</div>' +
+    '<div class="err" id="nameErr"></div></div>';
+
+  html += '<div class="row"><button class="b-orange" id="btnStart" style="width:100%">' +
+    '決定して開始</button></div>';
+
+  showModal(html);
+
+  const cands = el('cands');
+  cands.addEventListener('click', function (e) {
+    const t = e.target.closest('[data-ci]');
+    if (!t) return;
+    selectedCand = parseInt(t.getAttribute('data-ci'), 10);
+    cands.querySelectorAll('.cand').forEach(function (c, i) {
+      c.classList.toggle('on', i === selectedCand);
+    });
+  });
+
+  const inp = el('inpName');
+  inp.focus();
+  inp.addEventListener('input', function () { el('nameErr').textContent = ''; });
+  inp.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') el('btnStart').click();
+  });
+
+  el('btnStart').addEventListener('click', confirmRegister);
+}
+
+function confirmRegister() {
+  const nm = (el('inpName').value || '').trim();
+  if (!/^[\u30A0-\u30FF\u30FC]{2,9}$/.test(nm)) {
+    el('nameErr').textContent = 'カタカナ2〜9文字で入力してな。';
+    return;
+  }
+
+  // 隠しコマンド（元仕様の「もみがら」）
+  if (nm === 'モミガラ') {
+    myMoney = 99999;
+    const sk = makeSkill('大逃げ');
+    myHorseData = {
+      name: 'サイレンススズカ', baseSpeed: 19.9, spurtPower: 1.8, guts: 19.9,
+      runType: '大逃げ', coat: '#4e342e', silk: '#43a047',
+      trainingCount: 0, peak: 30, wins: 0, condition: '絶好調',
+      prizeMoney: 0, skills: [sk]
+    };
+    isRegistering = false;
+    hideModal();
+    currentRaceIndex = 0;
+    registeredRaces = [];
+    isPlayerEntered = false;
+    updateHUD();
+    resetRace();
+    toast('デバッグモード起動や');
+    return;
+  }
+
+  const c = initialCandidates[selectedCand];
+  myHorseData = {
+    name: nm,
+    baseSpeed: c.baseSpeed,
+    spurtPower: c.spurtPower,
+    guts: c.guts,
+    runType: c.runType,
+    coat: c.coat,
+    silk: c.silk,
+    trainingCount: 0,
+    peak: c.peak,
+    wins: 0,
+    condition: '普通',
+    prizeMoney: 0,
+    skills: [makeSkill(c.runType)]
+  };
+  isRegistering = false;
+  currentRaceIndex = 0;
+  registeredRaces = [];
+  isPlayerEntered = false;
+  hideModal();
+  updateHUD();
+  resetRace();
+}
+
+// ------------------------------------------------------------
+// 14. 配合（引退・世代交代）
+// ------------------------------------------------------------
+function showBreedingScreen() {
+  isBreeding = true;
+  isTrainingMode = false;
+  hideModal();
+
+  const mates = [
+    { name: '手頃な馬', price: 0, mult: 1.0 },
+    { name: '良血馬', price: 1000, mult: 1.05 },
+    { name: '伝説の馬', price: 3000, mult: 1.15 }
+  ];
+  initialCandidates = mates.map(function (m) {
+    const c = generateCandidate(m.mult);
+    c.mateName = m.name;
+    c.price = m.price;
+    return c;
+  });
+  selectedCand = 0;
+
+  let html = '<h1 class="pink">引退・次世代への配合</h1>' +
+    '<div class="tag">' + (myHorseData ? myHorseData.name : '') +
+    ' は引退しました。賞金で新たな馬を配合しよう。</div>';
+
+  html += '<div class="cands" id="mates">';
+  for (let i = 0; i < 3; i++) {
+    const c = initialCandidates[i];
+    html += '<div class="cand' + (i === 0 ? ' on' : '') + '" data-mi="' + i + '">' +
+      '<div class="t" style="color:#f06292">' + c.mateName + '</div>' +
+      '<div class="price">費用: ' + fmt(c.price) + ' G</div>' +
+      '<div class="s" style="margin-top:5px"><span>タイプ</span><b style="color:#fff">' + c.runType + '</b></div>' +
+      '<div class="s"><span>潜在SP</span><b>' + (c.baseSpeed * 10).toFixed(0) + '</b></div>' +
+      '<div class="s"><span>潜在ST</span><b>' + (c.guts * 10).toFixed(0) + '</b></div>' +
+      '<div class="s"><span>瞬発</span><b>' + c.spurtPower.toFixed(2) + '</b></div>' +
+      '</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="fld"><label>新しい馬の名前（カタカナ 2〜9文字）</label>' +
+    '<input id="inpBreed" maxlength="9" placeholder="例: トウカイテイオー" autocomplete="off">' +
+    '<div class="err" id="breedErr"></div></div>';
+
+  html += '<div class="row">' +
+    '<button class="b-purple" id="btnBreed" style="flex:1;padding:12px">配合して世代交代</button>' +
+    '<button class="b-gray" id="btnBreedCancel">やめる</button>' +
+    '</div>';
+
+  showModal(html);
+
+  const matesEl = el('mates');
+  matesEl.addEventListener('click', function (e) {
+    const t = e.target.closest('[data-mi]');
+    if (!t) return;
+    selectedCand = parseInt(t.getAttribute('data-mi'), 10);
+    matesEl.querySelectorAll('.cand').forEach(function (c, i) {
+      c.classList.toggle('on', i === selectedCand);
+    });
+  });
+
+  el('btnBreedCancel').addEventListener('click', function () {
+    isBreeding = false;
+    hideModal();
+    updatePanel();
+  });
+
+  el('btnBreed').addEventListener('click', function () {
+    const c = initialCandidates[selectedCand];
+    if (myMoney < c.price) { el('breedErr').textContent = '賞金が足りません！'; return; }
+    const nm = (el('inpBreed').value || '').trim();
+    if (!/^[\u30A0-\u30FF\u30FC]{2,9}$/.test(nm)) {
+      el('breedErr').textContent = 'カタカナ2〜9文字で入力してな。';
+      return;
+    }
+    myMoney -= c.price;
+    myHorseData = {
+      name: nm, baseSpeed: c.baseSpeed, spurtPower: c.spurtPower, guts: c.guts,
+      runType: c.runType, coat: c.coat, silk: c.silk,
+      trainingCount: 0, peak: c.peak, wins: 0, condition: '普通',
+      prizeMoney: 0, skills: [makeSkill(c.runType)]
+    };
+    isBreeding = false;
+    hideModal();
+    currentRaceIndex = 0;
+    registeredRaces = [];
+    isPlayerEntered = false;
+    updateHUD();
+    resetRace();
+  });
+}
+
+// ------------------------------------------------------------
+// 15. 育成画面
+// ------------------------------------------------------------
+function toggleTrainingScreen() {
+  if (isRacing || isFinished || isRegistering || isBreeding) {
+    if (isRacing) toast('レース中です');
+    return;
+  }
+  if (!myHorseData) { showRegisterScreen(); return; }
+  isTrainingMode = !isTrainingMode;
+  if (isTrainingMode) {
+    updateTrainingScreen();
+    hidePanels(true);
+  } else {
+    hideModal();
+    hidePanels(false);
+    updatePanel();
+  }
+}
+
+function updateTrainingScreen() {
+  if (!myHorseData) return;
+  const h = myHorseData;
+  const isPastPeak = h.trainingCount > h.peak;
+  const peakText = isPastPeak
+    ? '<span style="color:#ef5350">ピークを過ぎたようだ…</span>'
+    : '<span style="color:#66bb6a">まだまだ成長期だ！</span>';
+
+  const trainDisabled = (hasTrained || isPlayerEntered) ? 'disabled' : '';
+  const condDisabled = isPlayerEntered ? 'disabled' : '';
+
+  let html = '<h1>あなたの馬を育成・設定</h1>';
+  html += '<div class="tag">' + (isPlayerEntered
+    ? '<span style="color:#ff5252;font-weight:bold">今週はレース出走週です！トレーニングはできません。</span>'
+    : 'パドックの間に上げられる能力は1つ、1回のみです') + '</div>';
+
+  html += '<div class="stats">' +
+    '<div class="sbox"><div class="k">スピード</div><div class="v">' + h.baseSpeed.toFixed(2) + '</div>' +
+      '<div class="bar"><i style="width:' + clamp(h.baseSpeed / 20 * 100, 0, 100) + '%"></i></div></div>' +
+    '<div class="sbox"><div class="k">スパート</div><div class="v">' + h.spurtPower.toFixed(2) + '</div>' +
+      '<div class="bar"><i style="width:' + clamp(h.spurtPower / 3 * 100, 0, 100) + '%"></i></div></div>' +
+    '<div class="sbox"><div class="k">スタミナ</div><div class="v">' + h.guts.toFixed(2) + '</div>' +
+      '<div class="bar"><i style="width:' + clamp(h.guts / 20 * 100, 0, 100) + '%"></i></div></div>' +
+    '<div class="sbox"><div class="k">調子</div><div class="v" style="font-size:15px;color:' +
+      ['#78909c','#4fc3f7','#e0e0e0','#ffb74d','#ff5252'][condIdx(h.condition)] + '">' +
+      h.condition + '</div></div>' +
+    '</div>';
+
+  html += '<div style="display:flex;justify-content:space-between;font-size:12px;' +
+    'color:#8fa4b3;margin-bottom:12px;padding:0 2px">' +
+    '<span>' + h.name + ' ／ ' + h.runType + '</span>' +
+    '<span>育成 ' + h.trainingCount + '/30 ／ ピーク ' + h.peak + '回</span></div>';
+  html += '<div style="text-align:center;font-size:12.5px;margin-bottom:12px">' + peakText +
+    ' ／ スキル <b style="color:#4dd0e1">' +
+    (h.skills && h.skills[0] ? h.skills[0].name : 'なし') + '</b></div>';
+
+  if (hasTrained && !isPlayerEntered) {
+    const col = lastTrainingResult === '超大成功' ? '#ffeb3b'
+              : lastTrainingResult === '大成功' ? '#ff9800' : '#66bb6a';
+    html += '<div style="text-align:center;color:' + col + ';font-weight:bold;' +
+      'margin-bottom:10px">育成' + lastTrainingResult + '！</div>';
+  }
+
+  html += '<div class="tlist">';
+  html += '<div class="titem"><div><div class="a">スピード強化</div>' +
+    '<div class="b">SP +0.2（10%で超大成功）／ 100 G</div></div>' +
+    '<button class="b-green" data-tr="speed" ' + trainDisabled + '>強化</button></div>';
+  html += '<div class="titem"><div><div class="a">スパート強化</div>' +
+    '<div class="b">瞬発 +0.2（10%で超大成功）／ 100 G</div></div>' +
+    '<button class="b-red" data-tr="spurt" ' + trainDisabled + '>強化</button></div>';
+  html += '<div class="titem"><div><div class="a">スタミナ強化</div>' +
+    '<div class="b">ST +0.2（10%で超大成功）／ 100 G</div></div>' +
+    '<button class="b-blue" data-tr="guts" ' + trainDisabled + '>強化</button></div>';
+  html += '<div class="titem"><div><div class="a">やる気向上</div>' +
+    '<div class="b">調子を1段階上げる ／ 50 G</div></div>' +
+    '<button class="b-purple" data-tr="cond" ' + condDisabled + '>強化</button></div>';
+  html += '<div class="titem"><div><div class="a">引退・配合</div>' +
+    '<div class="b">次世代の馬を誕生させる</div></div>' +
+    '<button class="b-gray" data-tr="breed">配合</button></div>';
+  html += '</div>';
+
+  // 脚質変更
+  html += '<div class="fld" style="margin-top:16px"><label>脚質変更（スキルも変わるで）</label>' +
+    '<div class="rtpick" id="rtPick" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">';
+  for (const r of RUN_TYPES) {
+    html += '<div data-rt="' + r + '" style="padding:9px 2px;text-align:center;' +
+      'border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer;' +
+      'background:' + (r === h.runType ? 'rgba(255,210,63,.18)' : 'rgba(255,255,255,.06)') + ';' +
+      'border:1.5px solid ' + (r === h.runType ? '#ffd23f' : 'transparent') + ';' +
+      'color:' + (r === h.runType ? '#ffd23f' : '#b0bec5') + '">' + r + '</div>';
+  }
+  html += '</div></div>';
+
+  // 出走登録
+  html += '<div style="margin-top:16px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">';
+  html += '<div style="font-size:12px;color:#cbd5e1;font-weight:bold;margin-bottom:8px">' +
+    '出走登録（最大3週先まで）</div>';
+
+  for (let i = 1; i <= 3; i++) {
+    const rIdx = (currentRaceIndex + i) % RACE_CALENDAR.length;
+    const rInfo = RACE_CALENDAR[rIdx];
+    const isReg = registeredRaces.indexOf(rIdx) >= 0;
+    let fee, label, canEnter = true, reason = '';
+
+    if (h.wins === 0) {
+      fee = 100;
+      label = isReg ? '登録済' : i + '週: 未勝利戦 [未勝利] (100G)';
+    } else {
+      fee = rInfo.fee;
+      if (rInfo.grade === '新馬戦' || rInfo.grade === '未勝利戦') {
+        canEnter = false;
+        reason = '(勝利馬不可)';
+      }
+      label = isReg ? '登録済' : i + '週: ' + rInfo.name + ' [' + rInfo.grade + '] (' + fee + 'G)';
+    }
+
+    const dis = (isReg || !canEnter) ? 'disabled' : '';
+    const bg = isReg ? 'rgba(100,100,100,.55)'
+              : (canEnter ? 'linear-gradient(135deg,#00acc1,#00838f)' : 'rgba(80,80,80,.5)');
+    html += '<button data-reg="' + rIdx + '" data-fee="' + fee + '" ' + dis +
+      ' style="width:100%;text-align:left;margin-bottom:5px;padding:8px 11px;' +
+      'font-size:11.5px;border-radius:7px;background:' + bg + ';color:#fff;' +
+      'font-weight:bold;' + (dis ? 'cursor:not-allowed;opacity:.6' : '') + '">' +
+      label + '<span style="float:right;font-size:10px;color:#ffeb3b">' + reason + '</span></button>';
+  }
+  html += '</div>';
+
+  html += '<div class="row"><button class="b-gray" id="btnTrainClose" ' +
+    'style="padding:10px 30px;font-size:14px">閉じる</button></div>';
+
+  showModal(html);
+  hidePanels(true);
+  isTrainingMode = true;
+
+  // バインド
+  el('mInner').querySelectorAll('[data-tr]').forEach(function (b) {
+    b.addEventListener('click', function () { doTrainAction(b.getAttribute('data-tr')); });
+  });
+  el('mInner').querySelectorAll('[data-reg]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      registerRace(parseInt(b.getAttribute('data-reg'), 10),
+                   parseInt(b.getAttribute('data-fee'), 10));
+    });
+  });
+  el('rtPick').addEventListener('click', function (e) {
+    const t = e.target.closest('[data-rt]');
+    if (!t) return;
+    updateMyRunType(t.getAttribute('data-rt'));
+  });
+  el('btnTrainClose').addEventListener('click', function () {
+    isTrainingMode = false;
+    hideModal();
+    hidePanels(false);
+    updatePanel();
+  });
+}
+
+function doTrainAction(type) {
+  if (type === 'breed') { showBreedingScreen(); return; }
+  if (type === 'cond') { improveCondition(); return; }
+  trainHorse(type);
+}
+
+function trainHorse(type) {
+  if (isRacing || isFinished || hasTrained || !myHorseData || isPlayerEntered) return;
+  if (myMoney < 100) { toast('メダルが足りません'); return; }
+  myMoney -= 100;
+  const h = myHorseData;
+  h.trainingCount++;
+
+  const isPastPeak = h.trainingCount > h.peak;
+  const r = Math.random();
+  let multi = 1.0;
+  lastTrainingResult = '成功';
+  if (r < 0.10) { multi = 3.0; lastTrainingResult = '超大成功'; }
+  else if (r < 0.30) { multi = 1.5; lastTrainingResult = '大成功'; }
+
+  const gain = isPastPeak ? rnd(-0.05, 0.05) : 0.2 * multi;
+
+  if (type === 'speed') h.baseSpeed += gain;
+  else if (type === 'spurt') h.spurtPower += gain;
+  else if (type === 'guts') h.guts += gain;
+
+  // 元仕様のバランス制約（SP と ST の差は 2.5 まで）
+  if (Math.abs(h.baseSpeed - h.guts) > 2.5) {
+    if (h.guts > h.baseSpeed) h.guts = h.baseSpeed + 2.5;
+    else h.guts = h.baseSpeed - 2.5;
+  }
+
+  hasTrained = true;
+  updateHUD();
+
+  if (h.trainingCount >= 30) {
+    showBreedingScreen();
+  } else {
+    updateTrainingScreen();
+  }
+}
+
+function improveCondition() {
+  if (isRacing || isFinished || !myHorseData || isPlayerEntered) return;
+  if (myMoney < 50) { toast('メダルが足りません'); return; }
+  myMoney -= 50;
+  const idx = condIdx(myHorseData.condition);
+  myHorseData.condition = COND_NAMES[Math.min(4, idx + 1 + ri(0, 1))];
+  updateHUD();
+  updateTrainingScreen();
+}
+
+function updateMyRunType(val) {
+  if (!myHorseData) return;
+  myHorseData.runType = val;
+  myHorseData.skills = [makeSkill(val)];
+  updateTrainingScreen();
+}
+
+function registerRace(rIdx, fee) {
+  if (registeredRaces.indexOf(rIdx) >= 0) return;
+  if (myMoney < fee) { toast('メダルが足りません！ 出走料 ' + fee + ' G'); return; }
+  myMoney -= fee;
+  registeredRaces.push(rIdx);
+  updateHUD();
+  updateTrainingScreen();
+}
+
+// ------------------------------------------------------------
+// 16. 結果画面（確定着順 + 着差 + 馬券の払い戻し）
+// ------------------------------------------------------------
+// ============================================================
+//  ゴール後の結果表示（着順・着差・タイム・全馬券の払い戻し）
+// ============================================================
+function timeText(sec) {
+  if (!sec || !isFinite(sec) || sec <= 0) return '-';
+  const m = Math.floor(sec / 60);
+  const s = sec - m * 60;
+  const ss = s.toFixed(1);
+  return (m > 0 ? m + ':' + (s < 10 ? '0' : '') : '') + ss;
+}
+
+function buildRankTableHTML() {
+  const sorted = sortHorses();
+  let html = '<div class="rf-tab">';
+  html += '<div class="rf-row hd"><span>着順</span><span style="text-align:center">番</span>' +
+    '<span>馬名</span><span style="text-align:center">人気</span>' +
+    '<span style="text-align:right">着差</span><span style="text-align:right">タイム</span></div>';
+
+  for (let i = 0; i < sorted.length; i++) {
+    const h = sorted[i];
+    let margin = '—';
+    if (i > 0) {
+      const diff = Math.abs(h.finishFrame - sorted[i - 1].finishFrame);
+      margin = (h.finishRank > 0 && sorted[i - 1].finishRank > 0)
+        ? getMarginText(diff) : '—';
+    }
+    const cls = 'rf-row' + (h.isMyHorse ? ' me' : '');
+    const rank = h.finishRank > 0 ? h.finishRank : '—';
+    html += '<div class="' + cls + '">' +
+      '<span class="rf-p">' + rank + '</span>' +
+      '<span class="rf-n">' + h.id + '</span>' +
+      '<span class="rf-nm">' + h.name +
+        ' <em>' + h.runType + '</em>' +
+        (h.isMyHorse ? ' <em style="color:#ffd23f">★</em>' : '') + '</span>' +
+      '<span class="rf-n" style="text-align:center">' + h.popularity + '</span>' +
+      '<span class="rf-m">' + margin + '</span>' +
+      '<span class="rf-t">' + timeText(h.finishTime) + '</span>' +
+      '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function buildTicketResultHTML() {
+  const res = lastBetResult || { total: 0, hits: 0, details: [], stakeTotal: 0 };
+  const details = res.details || [];
+  let html = '<div class="rf-tab">';
+  html += '<div class="rf-row hd" style="grid-template-columns:1.4fr 46px 46px 1fr">' +
+    '<span>買い目</span><span style="text-align:right">賭金</span>' +
+    '<span style="text-align:right">払戻</span><span style="text-align:right">結果</span></div>';
+
+  if (details.length === 0) {
+    html += '<div class="rf-empty">今回は馬券を買うてへんで</div>';
+  } else {
+    details.forEach(function (t) {
+      html += '<div class="rf-row" style="grid-template-columns:1.4fr 46px 46px 1fr">' +
+        '<span class="rf-nm">' + t.type + ' ' + t.picks.join('-') + '</span>' +
+        '<span class="rf-m">' + fmt(t.stake) + '</span>' +
+        '<span class="rf-m" style="color:' + (t.hit ? '#4dd0e1' : '#5c6b73') + '">' +
+          (t.hit ? fmt(t.pay) : '0') + '</span>' +
+        '<span class="rf-m ' + (t.hit ? 'rf-hit' : 'rf-miss') + '" style="text-align:right">' +
+          (t.hit ? '的中 ' + t.odds.toFixed(1) + '倍' : 'はずれ') + '</span>' +
+        '</div>';
+    });
+  }
+  html += '</div>';
+
+  // 収支（馬券は買った時点で賭金を払ってるので、純収支で見せる）
+  const stakeAll = res.stakeTotal;
+  const betProfit = res.total - stakeAll;
+  const prizeTotal = lastPrize + (lastPayout || 0);
+  const grand = prizeTotal + betProfit;
+  const sgn = function (n) { return (n >= 0 ? '+' : '') + fmt(n); };
+  const col = function (n) { return n > 0 ? '#66bb6a' : (n < 0 ? '#ef5350' : '#9fb3c0'); };
+
+  html += '<div class="rf-sum">';
+  html += '<span class="k">' + (isPlayerEntered ? '自分の馬の賞金' : '出走なし（賞金なし）') +
+    '</span><span class="v">' + (lastPrize > 0 ? '+' : '') + fmt(lastPrize) + ' G</span>';
+  if (lastPayout > 0) {
+    html += '<span class="k">一口馬主の配当</span><span class="v">+' + fmt(lastPayout) + ' G</span>';
+  }
+  html += '<span class="k">馬券の賭金</span><span class="v">-' + fmt(stakeAll) + ' G</span>';
+  html += '<span class="k">馬券の払戻</span><span class="v ' +
+    (res.total > 0 ? 'rf-hit' : '') + '">+' + fmt(res.total) + ' G</span>';
+  html += '<span class="k">馬券の収支</span><span class="v" style="color:' + col(betProfit) +
+    '">' + sgn(betProfit) + ' G</span>';
+  html += '<span class="k tot">このレースの収支合計</span>' +
+    '<span class="v tot" style="color:' + col(grand) + '">' + sgn(grand) + ' G</span>';
+  html += '<span class="k">所持金</span><span class="v">' + fmt(myMoney) + ' G</span>';
+  html += '</div>';
+  return html;
+}
+
+function buildResultFlashHTML() {
+  const sorted = sortHorses();
+  const raceInfo = getRaceInfo();
+  const w = winner || sorted[0];
+  let html = '';
+
+  html += '<div class="rf-top"><b>' + raceInfo.name + ' 結果</b>' +
+    '<span>' + raceInfo.grade + ' ／ 1着 ' + (w ? w.id + '番 ' + w.name : '-') +
+    (w ? ' ／ ' + timeText(w.finishTime) : '') + '</span></div>';
+
+  html += '<div class="rf-cols">';
+  html += '<div><div class="rf-h">着順・着差・タイム</div>' + buildRankTableHTML() + '</div>';
+  html += '<div><div class="rf-h">馬券の払い戻しと収支</div>' + buildTicketResultHTML() + '</div>';
+  html += '</div>';
+
+  html += '<div class="rf-foot" id="rfCount">あと 5 秒で次のレースへ</div>';
+  return html;
+}
+
+function showResultFlash() {
+  isResultFlash = true;
+  resultFlashStart = performance.now();
+  updateRankPanel();
+  const box = el('resultFlash');
+  const inner = el('rfInner');
+  if (box && inner) {
+    inner.innerHTML = buildResultFlashHTML();
+    box.classList.add('on');
+  }
+  // 実況欄は結果に差し替え
+  const cm = el('comment');
+  if (cm && winner) {
+    cm.innerHTML = '★ ' + winner.name + '、ゴールイン！ ' +
+      timeText(winner.finishTime) + ' で優勝や！';
+  }
+}
+
+function hideResultFlash() {
+  isResultFlash = false;
+  resultModalShown = false;
+  const box = el('resultFlash');
+  if (box) box.classList.remove('on');
+}
+
+function buildResultHTML() {
+  const sorted = sortHorses();
+  const raceInfo = getRaceInfo();
+
+  let html = '<h1>' + raceInfo.name + ' 結果</h1>' +
+    '<div class="tag">' + raceInfo.grade + ' ／ ' +
+    (winner ? winner.name : '-') + ' 優勝</div>';
+
+  html += '<div style="max-height:44vh;overflow-y:auto;margin-bottom:12px">';
+  for (let i = 0; i < sorted.length; i++) {
+    const h = sorted[i];
+    let margin = '-';
+    if (i > 0) {
+      const diff = h.finishFrame - sorted[i - 1].finishFrame;
+      margin = getMarginText(Math.abs(diff));
+    }
+    const cls = 'resrow' + (i === 0 ? ' w' : '') + (h.isMyHorse ? ' me' : '');
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+    html += '<div class="' + cls + '">' +
+      '<div class="p">' + medal + '</div>' +
+      '<div class="n" style="' + (h.isMyHorse ? 'color:#ffd23f;font-weight:bold' : '') + '">' +
+        h.id + '番 ' + h.name + (h.isMyHorse ? ' ★' : '') +
+        ' <span style="font-size:10px;color:#8fa4b3">' + h.runType + '</span></div>' +
+      '<div class="o">' + h.oddsStr + '</div>' +
+      '<div class="m">' + margin + '</div>' +
+      '</div>';
+  }
+  html += '</div>';
+
+  // 払い戻し
+  let payoutHtml = '';
+  payoutHtml += '<div class="big">レース獲得賞金: ' + fmt(lastPrize) + ' G';
+  if (lastPayout > 0) payoutHtml += '<br>一口馬主配当: ' + fmt(lastPayout) + ' G';
+  if (lastBetResult && lastBetResult.total > 0) {
+    payoutHtml += '<br><span style="color:#4dd0e1">馬券的中 ' + lastBetResult.hits +
+      '件 → ' + fmt(lastBetResult.total) + ' G</span>';
+    lastBetResult.lines.forEach(function (l) {
+      payoutHtml += '<div style="font-size:11.5px;color:#4dd0e1;font-weight:normal">' + l + '</div>';
+    });
+  }
+  payoutHtml += '<br><span style="font-size:13px;color:#cbd5e1">所持金: ' +
+    fmt(myMoney) + ' G</span></div>';
+
+  html += payoutHtml;
+  html += '<div class="sub2">' + (myHorseData
+    ? myHorseData.name + ' ／ 通算 ' + (myHorseData.wins || 0) + '勝 ／ 調子 ' +
+      myHorseData.condition
+    : '') + '</div>';
+  html += '<div class="row"><button class="b-orange" id="btnNext" ' +
+    'style="padding:12px 34px">次のレースへ</button></div>';
+  return html;
+}
+
+function showResultModal() {
+  // 賞金・馬券は settlePrize で精算済み
+  showModal(buildResultHTML());
+  const nb = el('btnNext');
+  if (nb) nb.addEventListener('click', proceedToNextRace);
+
+  // payout HUD
+  const pe = el('payout');
+  let txt = 'レース獲得賞金: ' + fmt(lastPrize) + ' G';
+  if (lastPayout > 0) txt += ' ｜ 一口配当: ' + fmt(lastPayout) + ' G';
+  if (lastBetResult && lastBetResult.total > 0) {
+    txt += ' ｜ 馬券: +' + fmt(lastBetResult.total) + ' G';
+  }
+  pe.innerHTML = txt;
+  pe.style.display = 'block';
+}
+
+function proceedToNextRace() {
+  hideModal();
+  hideResultFlash();
+  el('payout').style.display = 'none';
+  el('rank').style.display = 'none';
+  hidePanels(false);
+  currentRaceIndex = (currentRaceIndex + 1) % RACE_CALENDAR.length;
+  isPlayerEntered = registeredRaces.indexOf(currentRaceIndex) >= 0;
+  if (isPlayerEntered) {
+    registeredRaces = registeredRaces.filter(function (i) { return i !== currentRaceIndex; });
+  }
+  lastBetResult = { total: 0, hits: 0, lines: [], details: [], stakeTotal: 0 };
+  resetRace();
+}
+
+// ------------------------------------------------------------
+// 17. セーブ / ロード（Base64 + 馬券履歴なし）
+// ------------------------------------------------------------
+function saveGame() {
+  if (!myHorseData) { toast('まだ馬がおらんで'); return; }
+  const data = { m: myMoney, h: myHorseData, r: currentRaceIndex, reg: registeredRaces };
+  const code = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+
+  const raceInfoSave = getRaceInfo();
+  const raceNameSave = raceInfoSave ? raceInfoSave.name : '不明';
+  showModal(
+    '<h1>セーブ</h1>' +
+    '<div class="tag">' + myHorseData.name + ' ／ 獲得賞金 ' + fmt(myHorseData.prizeMoney || 0) +
+    ' G ／ 所持金 ' + fmt(myMoney) + ' G ／ ' + raceNameSave + ' まで</div>' +
+    '<div class="fld"><label>セーブコード</label>' +
+    '<input id="saveCode" readonly value="' + code + '" ' +
+    'style="font-size:10.5px;letter-spacing:0;font-weight:normal"></div>' +
+    '<div class="row">' +
+    '<button class="b-blue" id="btnCopy">コピー</button>' +
+    '<button class="b-gray" id="btnCloseSave">閉じる</button></div>'
+  );
+  el('btnCopy').addEventListener('click', function () {
+    const i = el('saveCode');
+    i.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    toast('コピーしたで');
+  });
+  el('btnCloseSave').addEventListener('click', hideModal);
+}
+
+function loadGame() {
+  showModal(
+    '<h1>ロード</h1>' +
+    '<div class="tag">セーブコードを貼り付けてな</div>' +
+    '<div class="fld"><label>セーブコード</label>' +
+    '<input id="loadCode" placeholder="ここに貼り付け" ' +
+    'style="font-size:10.5px;letter-spacing:0;font-weight:normal">' +
+    '<div class="err" id="loadErr"></div></div>' +
+    '<div class="row">' +
+    '<button class="b-green" id="btnDoLoad">ロードする</button>' +
+    '<button class="b-gray" id="btnCloseLoad">閉じる</button></div>'
+  );
+  el('btnCloseLoad').addEventListener('click', hideModal);
+  el('btnDoLoad').addEventListener('click', function () {
+    const code = (el('loadCode').value || '').trim();
+    if (!code) return;
+
+    if (code === 'もみがら') {
+      myMoney = 99999;
+      myHorseData = {
+        name: 'サイレンススズカ', baseSpeed: 19.9, spurtPower: 1.8, guts: 19.9,
+        runType: '大逃げ', coat: '#4e342e', silk: '#43a047',
+        trainingCount: 0, peak: 30, wins: 0, condition: '絶好調',
+        prizeMoney: 0, skills: [makeSkill('大逃げ')]
+      };
+      currentRaceIndex = 0;
+      registeredRaces = [];
+      isPlayerEntered = false;
+      isRegistering = false;
+      hideModal();
+      updateHUD();
+      resetRace();
+      toast('デバッグモード: サイレンススズカ召喚');
+      return;
+    }
+
+    if (code === '粉雪') {
+      myMoney = 5000;
+      myHorseData = {
+        name: 'マオリンハンカチ', baseSpeed: 10, spurtPower: 2.2, guts: 13,
+        runType: '追込', coat: '#d4a574', silk: '#e91e63',
+        trainingCount: 0, peak: 20, wins: 0, condition: '絶好調',
+        prizeMoney: 0, skills: [{ name: '限界突破', desc: '限界を超えた脚！まだ伸びる！まだ伸びるぞ！', boost: 1.0, cond: (p, r) => p > 0.95 && p < 0.99, used: false }]
+      };
+      currentRaceIndex = 0;
+      registeredRaces = [];
+      isPlayerEntered = false;
+      isRegistering = false;
+      hideModal();
+      updateHUD();
+      resetRace();
+      toast('粉雪降る中、マオリンハンカチが登場したで');
+      return;
+    }
+
+    try {
+      const o = JSON.parse(decodeURIComponent(escape(atob(code))));
+      myMoney = o.m || 2000;
+      myHorseData = o.h || null;
+      currentRaceIndex = o.r || 0;
+      registeredRaces = o.reg || [];
+      isPlayerEntered = registeredRaces.indexOf(currentRaceIndex) >= 0;
+      isRegistering = !myHorseData;
+      hideModal();
+      updateHUD();
+      const raceInfoLoad = getRaceInfo();
+      const raceNameLoad = raceInfoLoad ? raceInfoLoad.name : '不明';
+      if (!myHorseData) showRegisterScreen();
+      else resetRace();
+      toast(raceNameLoad + ' までのデータをロードしたで');
+    } catch (e) {
+      el('loadErr').textContent = '不正なセーブコードや。';
+    }
+  });
+}
+
+// ------------------------------------------------------------
+// 18. メインループ
+// ------------------------------------------------------------
+let lastT = 0;
+
+function updateRankPanel() {
+  const rp = el('rank');
+  if (isPodium) {
+    const s = sortHorses();
+    let html = '<div style="color:#ffb74d;font-weight:bold;margin-bottom:5px">確定着順</div>';
+    for (let i = 0; i < Math.min(5, s.length); i++) {
+      html += '<div class="rt"><span>' + (i + 1) + '着</span><span style="flex:1;text-align:left;' +
+        'padding-left:5px;' + (s[i].isMyHorse ? 'color:#ffd23f;font-weight:bold' : '') + '">' +
+        s[i].id + ' ' + s[i].name + '</span></div>';
+    }
+    rp.innerHTML = html;
+    rp.style.display = 'block';
+    return;
+  }
+  if (isRacing && !isFinished) {
+    const s = sortHorses();
+    if (s.length < 3) { rp.style.display = 'none'; return; }
+    const elapsed = frameCount - raceStartTime;
+    let html = '';
+    if (elapsed > 600) {
+      html += '<div style="color:#ffb74d;font-weight:bold;margin-bottom:5px;font-size:11px">' +
+        '展開: ' + racePace + ' / ' + packState + '</div>' +
+        '<hr style="border-color:rgba(255,255,255,.15);margin:5px 0">';
+    }
+    for (let i = 0; i < 3; i++) {
+      html += '<div class="rt"><span>' + (i + 1) + '位</span>' +
+        '<span style="flex:1;text-align:left;padding-left:5px">' + s[i].id + '番 ' + s[i].name +
+        ' <span style="color:#8fa4b3;font-size:10px">(' + s[i].oddsStr + ')</span></span></div>';
+    }
+    rp.innerHTML = html;
+    rp.style.display = 'block';
+    return;
+  }
+  rp.style.display = 'none';
+}
+
+
+function draw() {
+  // --- パドックは手動スタート（自動発走なし） ---
+
+  // --- 更新 ---
+  if ((isRacing || isFinished) && !isRegistering && !isBreeding) {
+    frameCount++;
+    updateRace();
+    if (isRacing && !isFinished) updateCommentary();
+    updateCamera();
+  } else {
+    // パドック中もカメラは回す
+    frameCount++;
+    updateCamera();
+  }
+
+  // --- 3D描画 ---
+  if (is3D && renderer3d && scene3d && camera3d) {
+    updateHorseMeshes3D();
+    updateCamera3D();
+    renderer3d.render(scene3d, camera3d);
+  }
+
+  // --- 2D UIオーバーレイ ---
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.clearRect(0, 0, W, H);
+
+  // 3Dモード時はUIだけ描画（背景はThree.jsが描画する）
+  if (!is3D) {
+    // 2Dモード時は従来通り全部描画
+    drawSky();
+    drawGround();
+    drawTrackSurface();
+    drawTrackLines();
+    drawFencePosts();
+  }
+
+  if (!isRegistering && !isBreeding) {
+    if (isPodium && winner) {
+      if (!is3D) drawPodiumFx();
+    } else if (!isReplaying && !isResultFlash) {
+      if (!is3D) {
+        drawGate(0, isRacing && (frameCount - raceStartTime >= 240) ? 1 : 0);
+        drawHorses();
+        drawDust();
+      }
+    }
+  }
+
+  // UI要素は常に描画
+  updateRankPanel();
+}
+
+function loop(now) {
+  const dt = Math.min(64, now - (lastT || now));
+  lastT = now;
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ------------------------------------------------------------
+// 19. 初期化
+// ------------------------------------------------------------
+
+// ===== Three.js 3Dセットアップ =====
+let scene3d, camera3d, renderer3d, courseGroup3d, paddockGroup3d;
+let horseMeshes3d = [];
+let podiumGroup3d;
+let is3D = true;
+
+function initThreeJS() {
+  scene3d = new THREE.Scene();
+  scene3d.background = new THREE.Color(0x87c8ff);
+  scene3d.fog = new THREE.Fog(0x87c8ff, 4000, 18000);
+
+  camera3d = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 30000);
+
+  renderer3d = new THREE.WebGLRenderer({ antialias: true });
+  renderer3d.setSize(window.innerWidth, window.innerHeight);
+  renderer3d.shadowMap.enabled = true;
+  renderer3d.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer3d.domElement.style.position = 'fixed';
+  renderer3d.domElement.style.top = '0';
+  renderer3d.domElement.style.left = '0';
+  renderer3d.domElement.style.width = '100%';
+  renderer3d.domElement.style.height = '100%';
+  renderer3d.domElement.style.zIndex = '1';
+  document.body.insertBefore(renderer3d.domElement, document.body.firstChild);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+  scene3d.add(ambient);
+  const dir = new THREE.DirectionalLight(0xfffff0, 0.9);
+  dir.position.set(-1000, 3000, -1500);
+  dir.castShadow = true;
+  dir.shadow.mapSize.width = 2048;
+  dir.shadow.mapSize.height = 2048;
+  dir.shadow.camera.near = 0.5;
+  dir.shadow.camera.far = 20000;
+  dir.shadow.camera.left = -10000;
+  dir.shadow.camera.right = 10000;
+  dir.shadow.camera.top = 10000;
+  dir.shadow.camera.bottom = -10000;
+  scene3d.add(dir);
+  const hemi = new THREE.HemisphereLight(0x87ceeb, 0x1a5a1a, 0.45);
+  scene3d.add(hemi);
+
+  const groundGeo = new THREE.PlaneGeometry(50000, 50000);
+  const groundMat = new THREE.MeshLambertMaterial({ color: 0x1d5a1d });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -8;
+  ground.receiveShadow = true;
+  scene3d.add(ground);
+
+  courseGroup3d = new THREE.Group();
+  scene3d.add(courseGroup3d);
+  paddockGroup3d = new THREE.Group();
+  scene3d.add(paddockGroup3d);
+  podiumGroup3d = new THREE.Group();
+  scene3d.add(podiumGroup3d);
+  podiumGroup3d.visible = false;
+
+  createCourse3D();
+  createPaddock3D();
+  createPodium3D();
+}
+
+function createCourse3D() {
+  const turfColor = 0x5c9e45, dirtColor = 0xc4a060, railWhite = 0xf5f5f5;
+  const trackY = 0, turfW = 500, dirtW = 300, gap = 10;
+
+  const s1 = new THREE.Mesh(new THREE.BoxGeometry(turfW, 2, trackS1), new THREE.MeshLambertMaterial({ color: turfColor }));
+  s1.position.set(0, trackY, trackS1/2); s1.receiveShadow = true; courseGroup3d.add(s1);
+
+  const rail1 = new THREE.Mesh(new THREE.BoxGeometry(4, 0.8, trackS1), new THREE.MeshLambertMaterial({ color: railWhite }));
+  rail1.position.set(turfW/2, trackY+1.1, trackS1/2); courseGroup3d.add(rail1);
+
+  const cornerSegs = 48, cx = -trackR, cz = trackS1;
+  const turfOuterR = trackR + turfW/2, turfInnerR = trackR - turfW/2;
+  for (let i = 0; i < cornerSegs; i++) {
+    const a1 = (i/cornerSegs)*Math.PI, a2 = ((i+1)/cornerSegs)*Math.PI;
+    const midA = (a1+a2)/2, midR = (turfInnerR+turfOuterR)/2;
+    const arcLen = midR*(a2-a1);
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(turfW, 2, arcLen*1.03), new THREE.MeshLambertMaterial({ color: turfColor }));
+    seg.position.set(cx+midR*Math.cos(midA), trackY, cz+midR*Math.sin(midA));
+    seg.rotation.y = -midA; seg.receiveShadow = true; courseGroup3d.add(seg);
+    const outerLine = new THREE.Mesh(new THREE.BoxGeometry(4, 0.8, arcLen+2), new THREE.MeshLambertMaterial({ color: railWhite }));
+    outerLine.position.set(cx+turfOuterR*Math.cos(midA), trackY+1.1, cz+turfOuterR*Math.sin(midA));
+    outerLine.rotation.y = -midA; courseGroup3d.add(outerLine);
+  }
+
+  const s2 = new THREE.Mesh(new THREE.BoxGeometry(turfW, 2, trackS2), new THREE.MeshLambertMaterial({ color: turfColor }));
+  s2.position.set(-2*trackR, trackY, trackS1-trackS2/2); s2.receiveShadow = true; courseGroup3d.add(s2);
+
+  // ゴール後も芝を延長（ウイニングラン用）
+  const s3 = new THREE.Mesh(new THREE.BoxGeometry(turfW, 2, 3000), new THREE.MeshLambertMaterial({ color: turfColor }));
+  s3.position.set(-2*trackR, trackY, trackS1-trackS2-1500); s3.receiveShadow = true; courseGroup3d.add(s3);
+  const rail3 = new THREE.Mesh(new THREE.BoxGeometry(4, 0.8, 3000), new THREE.MeshLambertMaterial({ color: railWhite }));
+  rail3.position.set(-2*trackR+turfW/2, trackY+1.1, trackS1-trackS2-1500); courseGroup3d.add(rail3);
+  // ゴール後のラチポールも追加
+  const postGeo2 = new THREE.BoxGeometry(4, 32, 4);
+  const postMat2 = new THREE.MeshLambertMaterial({ color: railWhite });
+  for (let d = 0; d <= 3000; d += 120) {
+    const p = new THREE.Mesh(postGeo2, postMat2);
+    p.position.set(-2*trackR+turfW/2, 16, trackS1-trackS2-d);
+    courseGroup3d.add(p);
+  }
+
+  const rail2 = new THREE.Mesh(new THREE.BoxGeometry(4, 0.8, trackS2), new THREE.MeshLambertMaterial({ color: railWhite }));
+  rail2.position.set(-2*trackR+turfW/2, trackY+1.1, trackS1-trackS2/2); courseGroup3d.add(rail2);
+
+  const d1 = new THREE.Mesh(new THREE.BoxGeometry(dirtW, 2, trackS1), new THREE.MeshLambertMaterial({ color: dirtColor }));
+  d1.position.set(-(turfW/2+gap+dirtW/2), trackY-0.2, trackS1/2); d1.receiveShadow = true; courseGroup3d.add(d1);
+
+  const dirtOuterR = trackR-turfW/2-gap, dirtInnerR = dirtOuterR-dirtW;
+  for (let i = 0; i < cornerSegs; i++) {
+    const a1 = (i/cornerSegs)*Math.PI, a2 = ((i+1)/cornerSegs)*Math.PI;
+    const midA = (a1+a2)/2, midR = (dirtInnerR+dirtOuterR)/2;
+    const arcLen = midR*(a2-a1);
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(dirtW, 2, arcLen*1.03), new THREE.MeshLambertMaterial({ color: dirtColor }));
+    seg.position.set(cx+midR*Math.cos(midA), trackY-0.2, cz+midR*Math.sin(midA));
+    seg.rotation.y = -midA; seg.receiveShadow = true; courseGroup3d.add(seg);
+  }
+
+  const d2 = new THREE.Mesh(new THREE.BoxGeometry(dirtW, 2, trackS2), new THREE.MeshLambertMaterial({ color: dirtColor }));
+  d2.position.set(-2*trackR-(turfW/2+gap+dirtW/2), trackY-0.2, trackS1-trackS2/2); d2.receiveShadow = true; courseGroup3d.add(d2);
+
+  const postGeo = new THREE.BoxGeometry(4, 32, 4), postMat = new THREE.MeshLambertMaterial({ color: railWhite });
+  for (let d = 0; d <= trackS1; d += 120) { const p = new THREE.Mesh(postGeo, postMat); p.position.set(turfW/2, 16, d); courseGroup3d.add(p); }
+  for (let i = 0; i <= 48; i++) { const theta = (i/48)*Math.PI; const pp = new THREE.Mesh(postGeo, postMat); pp.position.set(cx+turfOuterR*Math.cos(theta), 16, cz+turfOuterR*Math.sin(theta)); courseGroup3d.add(pp); }
+  for (let d = 0; d <= trackS2; d += 120) { const p = new THREE.Mesh(postGeo, postMat); p.position.set(-2*trackR+turfW/2, 16, trackS1-d); courseGroup3d.add(p); }
+
+  const startLine = new THREE.Mesh(new THREE.BoxGeometry(turfW, 3, 20), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  startLine.position.set(0, trackY+2, 0); courseGroup3d.add(startLine);
+
+  const finishLine = new THREE.Mesh(new THREE.BoxGeometry(turfW, 3, 10), new THREE.MeshBasicMaterial({ color: 0xc81414 }));
+  finishLine.position.set(-2*trackR, trackY+2, trackS1 - trackS2); courseGroup3d.add(finishLine);
+
+  // ゴール（内側に設置）
+  const goalBoardGroup = new THREE.Group();
+  const boardW = 80, boardH = 50;
+  const boardCanvas = document.createElement('canvas');
+  boardCanvas.width = 256;
+  boardCanvas.height = 160;
+  const bctx = boardCanvas.getContext('2d');
+  bctx.fillStyle = '#ffffff';
+  bctx.fillRect(0, 0, 256, 160);
+  bctx.strokeStyle = '#c81414';
+  bctx.lineWidth = 8;
+  bctx.strokeRect(4, 4, 248, 152);
+  bctx.fillStyle = '#c81414';
+  bctx.font = 'bold 72px sans-serif';
+  bctx.textAlign = 'center';
+  bctx.textBaseline = 'middle';
+  bctx.fillText('GOAL', 128, 80);
+  const boardTex = new THREE.CanvasTexture(boardCanvas);
+  const boardMat = new THREE.MeshBasicMaterial({ map: boardTex, transparent: true, side: THREE.DoubleSide });
+  const boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(boardW, boardH), boardMat);
+  boardMesh.position.set(0, boardH/2 + 10, 0);
+  goalBoardGroup.add(boardMesh);
+  // 支柱
+  const poleMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+  const pole1 = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, boardH+10, 8), poleMat);
+  pole1.position.set(-boardW/2 + 5, (boardH+10)/2, 0);
+  goalBoardGroup.add(pole1);
+  const pole2 = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, boardH+10, 8), poleMat);
+  pole2.position.set(boardW/2 - 5, (boardH+10)/2, 0);
+  goalBoardGroup.add(pole2);
+  // ゴール線の内側に配置
+  goalBoardGroup.position.set(-2*trackR - turfW/2 - 20, trackY, trackS1 - trackS2);
+  courseGroup3d.add(goalBoardGroup);
+
+  // 地面にゴール線（白線）
+  const groundGoalLine = new THREE.Mesh(
+    new THREE.BoxGeometry(turfW + 40, 0.5, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  );
+  groundGoalLine.position.set(-2*trackR, trackY + 0.3, trackS1 - trackS2);
+  courseGroup3d.add(groundGoalLine);
+
+  const gateGroup = new THREE.Group(), gateMat = new THREE.MeshLambertMaterial({ color: 0x2a7a2a });
+  const gateTop = new THREE.Mesh(new THREE.BoxGeometry(turfW+20, 20, 50), gateMat); gateTop.position.set(0, 90, 0); gateGroup.add(gateTop);
+  const gateSide1 = new THREE.Mesh(new THREE.BoxGeometry(20, 100, 50), gateMat); gateSide1.position.set(-(turfW/2+10), 40, 0); gateGroup.add(gateSide1);
+  const gateSide2 = new THREE.Mesh(new THREE.BoxGeometry(20, 100, 50), gateMat); gateSide2.position.set(turfW/2+10, 40, 0); gateGroup.add(gateSide2);
+  for (let i = 0; i <= 12; i++) { const px = (i/12)*(turfW+10)-(turfW+10)/2; const post = new THREE.Mesh(new THREE.BoxGeometry(4, 100, 50), gateMat); post.position.set(px, 40, 0); gateGroup.add(post); }
+  gateGroup.position.set(0, 0, -40); courseGroup3d.add(gateGroup);
+}
+
+function createPaddock3D() {
+  const padGround = new THREE.Mesh(new THREE.CylinderGeometry(350, 350, 2, 64), new THREE.MeshLambertMaterial({ color: 0xd4b48c }));
+  padGround.position.set(0, -1, -1200); padGround.receiveShadow = true; paddockGroup3d.add(padGround);
+  const padInner = new THREE.Mesh(new THREE.RingGeometry(180, 280, 64), new THREE.MeshLambertMaterial({ color: 0xc4a47c, side: THREE.DoubleSide }));
+  padInner.rotation.x = -Math.PI/2; padInner.position.set(0, 0.1, -1200); paddockGroup3d.add(padInner);
+  const fenceMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
+  for (let i = 0; i < 64; i++) { const a = (i/64)*Math.PI*2; const post = new THREE.Mesh(new THREE.BoxGeometry(6, 40, 6), fenceMat); post.position.set(Math.cos(a)*350, 20, -1200+Math.sin(a)*350); paddockGroup3d.add(post); }
+  const fenceRing = new THREE.Mesh(new THREE.TorusGeometry(350, 3, 8, 64), fenceMat); fenceRing.rotation.x = Math.PI/2; fenceRing.position.set(0, 38, -1200); paddockGroup3d.add(fenceRing);
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(200, 50, 10), new THREE.MeshLambertMaterial({ color: 0x1a3a5a })); sign.position.set(0, 80, -1200-380); paddockGroup3d.add(sign);
+}
+
+function createPodium3D() {
+  const colors = [0xffd700, 0xc0c0c0, 0xcd7f32], heights = [100, 65, 45], positions = [-90, 0, 90];
+  for (let i = 0; i < 3; i++) {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(75, heights[i], 55), new THREE.MeshLambertMaterial({ color: 0x2a2a2a }));
+    base.position.set(positions[i], heights[i]/2, 0); base.castShadow = true; podiumGroup3d.add(base);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(75, 12, 55), new THREE.MeshLambertMaterial({ color: colors[i] }));
+    top.position.set(positions[i], heights[i]+6, 0); podiumGroup3d.add(top);
+  }
+}
+
+function createNumberTexture(num, bgColor, textColor) {
+  const cvs = document.createElement('canvas'); cvs.width = 128; cvs.height = 128;
+  const c = cvs.getContext('2d'); c.clearRect(0,0,128,128);
+  c.fillStyle = bgColor || 'rgba(255,255,255,0.95)'; c.fillRect(8, 8, 112, 112);
+  c.strokeStyle = textColor || '#000'; c.lineWidth = 6; c.strokeRect(8, 8, 112, 112);
+  c.fillStyle = textColor || '#000'; c.font = 'bold 80px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(num, 64, 64); return new THREE.CanvasTexture(cvs);
+}
+
+function createCoatTexture3D(colorHex) {
+  const c = new THREE.Color(colorHex);
+  const cvs = document.createElement('canvas'); cvs.width = 128; cvs.height = 128;
+  const ctx = cvs.getContext('2d'); ctx.fillStyle = '#' + c.getHexString(); ctx.fillRect(0,0,128,128);
+  for (let y=0; y<128; y+=4) { for (let x=0; x<128; x+=4) { const n = Math.random();
+    const r = Math.floor(c.r*(0.7+n*0.6)*255), g = Math.floor(c.g*(0.7+n*0.6)*255), b = Math.floor(c.b*(0.7+n*0.6)*255);
+    ctx.fillStyle = 'rgb('+r+','+g+','+b+')'; ctx.fillRect(x,y,4,4); } }
+  return new THREE.CanvasTexture(cvs);
+}
+
+function createHorseMesh3D(h, idx) {
+  const group = new THREE.Group();
+  const coatTex = createCoatTexture3D(h.coat || '#8d5524');
+  const coatMat = new THREE.MeshLambertMaterial({ map: coatTex });
+  const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+  const jc = h.silk ? new THREE.Color(h.silk) : new THREE.Color().setHSL((idx*0.15)%1, 0.7, 0.5);
+  const jockeyMat = new THREE.MeshLambertMaterial({ color: jc });
+  const blackMat = new THREE.MeshLambertMaterial({ color: 0x0a0a0a });
+
+  const wakuColors = ['#fff','#333','#e74c3c','#3498db','#f1c40f','#2ecc71','#e67e22','#fd79a8'];
+  const wakuIdx = ((h.id - 1) % 8);
+  const zekkenBg = wakuColors[wakuIdx];
+  const zekkenText = (wakuIdx === 0 || wakuIdx === 4 || wakuIdx === 7) ? '#000' : '#fff';
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(14, 16, 16), coatMat);
+  body.scale.set(1, 0.9, 2.0); body.position.set(0, 22, 0); body.castShadow = true; group.add(body);
+
+  const chest = new THREE.Mesh(new THREE.SphereGeometry(11, 12, 12), coatMat);
+  chest.scale.set(1, 0.9, 1.1); chest.position.set(0, 24, 10); group.add(chest);
+
+  const rump = new THREE.Mesh(new THREE.SphereGeometry(12, 12, 12), coatMat);
+  rump.scale.set(1, 0.9, 1.1); rump.position.set(0, 24, -10); group.add(rump);
+
+  const saddle = new THREE.Mesh(new THREE.BoxGeometry(15, 3, 12), jockeyMat);
+  saddle.position.set(0, 35, 0); group.add(saddle);
+
+  const zekkenTex = createNumberTexture(h.id || idx+1, zekkenBg, zekkenText);
+  const zekkenPlane = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshBasicMaterial({ map: zekkenTex, transparent: true, side: THREE.DoubleSide }));
+  zekkenPlane.position.set(0, 37, 0); zekkenPlane.rotation.x = -Math.PI/6; group.add(zekkenPlane);
+
+  const jockeyGroup = new THREE.Group(); jockeyGroup.position.set(0, 36, -2); jockeyGroup.rotation.x = Math.PI/5; group.add(jockeyGroup);
+  const jockeyBody = new THREE.Mesh(new THREE.BoxGeometry(7, 12, 5), jockeyMat); jockeyBody.position.set(0, 6, 0); jockeyBody.castShadow = true; jockeyGroup.add(jockeyBody);
+  const jockeyHead = new THREE.Mesh(new THREE.SphereGeometry(3.8, 12, 12), jockeyMat); jockeyHead.position.set(0, 14, 1); jockeyGroup.add(jockeyHead);
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(4.2, 12, 12, 0, Math.PI*2, 0, Math.PI/2), jockeyMat); helmet.position.set(0, 14.5, 1); jockeyGroup.add(helmet);
+
+  const armGeo = new THREE.CylinderGeometry(1.2, 1, 8, 6);
+  const leftArm = new THREE.Mesh(armGeo, jockeyMat); leftArm.position.set(-4, 8, 4); leftArm.rotation.x = -Math.PI/3; leftArm.rotation.z = -Math.PI/8; jockeyGroup.add(leftArm);
+  const rightArm = new THREE.Mesh(armGeo, jockeyMat); rightArm.position.set(4, 8, 4); rightArm.rotation.x = -Math.PI/3; rightArm.rotation.z = Math.PI/8; jockeyGroup.add(rightArm);
+
+  const whipGeo = new THREE.CylinderGeometry(0.3, 0.15, 14, 4);
+  const whipMat = new THREE.MeshLambertMaterial({ color: 0x5c3a1e });
+  const whip = new THREE.Mesh(whipGeo, whipMat); whip.position.set(6, 10, 8); whip.rotation.x = Math.PI/4; whip.visible = false; jockeyGroup.add(whip);
+
+  const jockeyLegGeo = new THREE.CylinderGeometry(1.5, 1.2, 10, 6);
+  const leftLeg = new THREE.Mesh(jockeyLegGeo, jockeyMat); leftLeg.position.set(-3, -2, 1); leftLeg.rotation.x = -Math.PI/6; jockeyGroup.add(leftLeg);
+  const rightLeg = new THREE.Mesh(jockeyLegGeo, jockeyMat); rightLeg.position.set(3, -2, 1); rightLeg.rotation.x = -Math.PI/6; jockeyGroup.add(rightLeg);
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 6.5, 18, 12), coatMat);
+  neck.position.set(0, 34, 16); neck.rotation.x = -Math.PI/3.5; neck.castShadow = true; group.add(neck);
+
+  const neckBase = new THREE.Mesh(new THREE.SphereGeometry(7, 10, 10), coatMat); neckBase.position.set(0, 30, 12); group.add(neckBase);
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(10, 11, 14), coatMat); head.position.set(0, 44, 26); head.castShadow = true; group.add(head);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(7, 7, 10), coatMat); snout.position.set(0, 42, 36); group.add(snout);
+  const snoutTip = new THREE.Mesh(new THREE.BoxGeometry(5.5, 4, 4), darkMat); snoutTip.position.set(0, 40, 43); group.add(snoutTip);
+
+  const earGeo = new THREE.ConeGeometry(2.2, 6, 8);
+  const ear1 = new THREE.Mesh(earGeo, coatMat); ear1.position.set(-3.5, 51, 22); ear1.rotation.x = -Math.PI/5; group.add(ear1);
+  const ear2 = new THREE.Mesh(earGeo, coatMat); ear2.position.set(3.5, 51, 22); ear2.rotation.x = -Math.PI/5; group.add(ear2);
+
+  const eyeGeo = new THREE.SphereGeometry(1.5, 8, 8);
+  const eye1 = new THREE.Mesh(eyeGeo, blackMat); eye1.position.set(-4.5, 45, 30); group.add(eye1);
+  const eye2 = new THREE.Mesh(eyeGeo, blackMat); eye2.position.set(4.5, 45, 30); group.add(eye2);
+
+  const tailGroup = new THREE.Group(); tailGroup.position.set(0, 30, -18);
+  const tailBase = new THREE.Mesh(new THREE.CylinderGeometry(3, 2.5, 14, 8), darkMat); tailBase.rotation.x = Math.PI/4; tailBase.position.set(0, -2, -4); tailGroup.add(tailBase);
+  const tailTip = new THREE.Mesh(new THREE.CylinderGeometry(2, 1, 14, 8), darkMat); tailTip.rotation.x = Math.PI/3; tailTip.position.set(0, -10, -10); tailGroup.add(tailTip);
+  group.add(tailGroup);
+
+  const legGroups = [];
+  function createLeg(x, z, isFront) {
+    const legG = new THREE.Group(); legG.position.set(x, 20, z);
+    const thighR = isFront ? 4 : 5;
+    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(thighR, thighR*0.8, 12, 10), coatMat); thigh.position.y = -5; legG.add(thigh);
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(thighR*0.7, 8, 8), coatMat); knee.position.y = -11; legG.add(knee);
+    const calf = new THREE.Mesh(new THREE.CylinderGeometry(thighR*0.5, thighR*0.35, 14, 8), darkMat); calf.position.y = -18; legG.add(calf);
+    const hoof = new THREE.Mesh(new THREE.BoxGeometry(4.5, 4, 5.5), blackMat); hoof.position.set(0, -25, 1); legG.add(hoof);
+    return legG;
+  }
+  const fl = createLeg(-6, 10, true), fr = createLeg(6, 10, true), bl = createLeg(-6, -10, false), br = createLeg(6, -10, false);
+  group.add(fl, fr, bl, br); legGroups.push(fl, fr, bl, br);
+
+  const shoeMat = new THREE.MeshLambertMaterial({ color: 0xffd700 });
+  [fl, fr, bl, br].forEach(leg => { const shoe = new THREE.Mesh(new THREE.BoxGeometry(4.7, 1.2, 5.7), shoeMat); shoe.position.set(0, -25.5, 1); leg.add(shoe); });
+
+  const numTex = createNumberTexture(h.id || idx+1);
+  const numPlane = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshBasicMaterial({ map: numTex, transparent: true, side: THREE.DoubleSide }));
+  numPlane.position.set(0, 40, -4); numPlane.rotation.x = -Math.PI/8; group.add(numPlane);
+
+  const glowGeo = new THREE.SphereGeometry(28, 16, 16);
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xffd700, transparent: true, opacity: 0 });
+  const glow = new THREE.Mesh(glowGeo, glowMat); glow.position.y = 28; group.add(glow);
+
+  scene3d.add(group);
+  // 馬の上に番号スプライトを追加するで！
+  const numCanvas2 = document.createElement('canvas');
+  numCanvas2.width = 64;
+  numCanvas2.height = 64;
+  const numCtx2 = numCanvas2.getContext('2d');
+  numCtx2.fillStyle = '#ffffff';
+  numCtx2.beginPath();
+  numCtx2.arc(32, 32, 30, 0, Math.PI * 2);
+  numCtx2.fill();
+  numCtx2.fillStyle = '#000000';
+  numCtx2.font = 'bold 36px sans-serif';
+  numCtx2.textAlign = 'center';
+  numCtx2.textBaseline = 'middle';
+  numCtx2.fillText(String(idx + 1), 32, 34);
+  const numTexture2 = new THREE.CanvasTexture(numCanvas2);
+  const numSpriteMat = new THREE.SpriteMaterial({ map: numTexture2, transparent: true });
+  const numSprite = new THREE.Sprite(numSpriteMat);
+  numSprite.position.set(0, 75, 0);
+  numSprite.scale.set(22, 22, 1);
+  group.add(numSprite);
+
+  return { group, legGroups, glow, glowMat, numPlane, tailGroup, zekkenPlane, body, head, neck, jockeyGroup, whip };
+}
+
+function clearHorseMeshes3D() {
+  for (const hm of horseMeshes3d) { scene3d.remove(hm.group); }
+  horseMeshes3d = [];
+}
+
+function updateHorseMeshes3D() {
+  if (!is3D || !scene3d) return;
+  if (horseMeshes3d.length !== horses.length) {
+    clearHorseMeshes3D();
+    for (let i = 0; i < horses.length; i++) { const meshData = createHorseMesh3D(horses[i], i); horseMeshes3d.push(meshData); }
+  }
+  for (let i = 0; i < horses.length; i++) {
+    const h = horses[i], hm = horseMeshes3d[i];
+    if (!hm || !h.isParticipating) { if (hm) hm.group.visible = false; continue; }
+    hm.group.visible = true;
+    const pos = getTrackPos(h.d, h.laneOffset);
+    hm.group.position.set(pos.x, 0, pos.z);
+    let dir;
+    if (h.d >= totalDistance && h.finishRank > 0) {
+      // ゴール後は向きを固定（ゴール時の向きを保持）
+      dir = travelDir(totalDistance - 10);
+    } else {
+      dir = travelDir(h.d);
+    }
+    hm.group.rotation.y = Math.atan2(dir.x, dir.z);
+    const moving = h.speed > 0.6, gallop = h.speed > 7.5, t = h.legAngle;
+    const AMP = gallop ? 0.55 : 0.28;
+    const phases = gallop ? [0, Math.PI*0.62, Math.PI*1.18, Math.PI*1.72] : [0, Math.PI, Math.PI*0.5, Math.PI*1.5];
+    for (let li = 0; li < 4; li++) { hm.legGroups[li].rotation.x = moving ? Math.sin(t + phases[li]) * AMP : 0; }
+    hm.tailGroup.rotation.z = moving ? Math.sin(t*1.5)*0.25 : Math.sin(t*0.35)*0.05;
+    hm.jockeyGroup.rotation.x = moving ? (gallop ? 0.78 : 0.40) + Math.sin(t)*0.045 : 0.24;
+    hm.whip.visible = gallop && Math.sin(t*1.9) > 0.3;
+    hm.glowMat.opacity = h.skillTimer > 0 ? 0.28 + Math.sin(performance.now()*0.012)*0.16 : 0;
+  }
+}
+
+function updateCamera3D() {
+  if (!is3D || !camera3d) return;
+  const sorted = sortHorses();
+  if (sorted.length === 0) return;
+  const lead = sorted[0];
+  const leadPos = getTrackPos(lead.d, lead.laneOffset);
+  const elapsed = frameCount - raceStartTime;
+  let tx, ty, tz, lx, ly, lz;
+
+  if (!isRacing && !isFinished) {
+    tx = leadPos.x + 230; ty = 165; tz = leadPos.z - 620;
+    lx = leadPos.x; ly = 26; lz = leadPos.z + 40;
+  } else if (isReplaying) {
+    // リプレイ: ゴール線の真横から固定カメラ（写真判定風）
+    const finishPos = getTrackPos(totalDistance, 0);
+    tx = finishPos.x + 800; ty = 80; tz = finishPos.z;
+    lx = finishPos.x; ly = 26; lz = finishPos.z;
+  } else if (isPodium) {
+    const w = winner || lead;
+    const wp = getTrackPos(w.d, w.laneOffset);
+    const dir = travelDir(w.d);
+    tx = wp.x + dir.z*400 - dir.x*110; ty = 152; tz = wp.z - dir.x*400 - dir.z*110;
+    lx = wp.x; ly = 30; lz = wp.z;
+  } else if (lead.d > totalDistance - 1100) {
+    const t = getRaceCamTarget();
+    const aim = t ? t.aim : { x: leadPos.x, z: leadPos.z };
+    const fp = getTrackPos(totalDistance, 0);
+    const followZ = clamp(aim.z, fp.z - 1000, fp.z + 900);
+    tx = fp.x - 640; ty = 178; tz = followZ - 330;
+    lx = aim.x; ly = 26; lz = aim.z - 40;
+  } else if (elapsed < 240) {
+    const t = clamp(elapsed/240, 0, 1);
+    const ease = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+    const radius = lerp(820, 1000, ease);
+    const ang = lerp(Math.atan2(-200, 1200), Math.PI*0.75, ease);
+    tx = Math.cos(ang)*radius; ty = lerp(230, 205, ease); tz = Math.sin(ang)*radius;
+    lx = 0; ly = 24; lz = lerp(120, 0, ease);
+  } else if (elapsed < 540) {
+    const t = getRaceCamTarget();
+    const aim = t ? t.aim : { x: leadPos.x, z: leadPos.z };
+    tx = aim.x + Math.cos(Math.PI*0.75)*1150; ty = 205; tz = aim.z + Math.sin(Math.PI*0.75)*1150;
+    lx = aim.x; ly = 24; lz = aim.z;
+  } else {
+    // 先頭争いで狙いが飛ばないよう、2D側と同じ「なました注視点」を使う
+    const t = getRaceCamTarget();
+    if (t) { tx = t.x; ty = t.y; tz = t.z; lx = t.tx; ly = t.ty; lz = t.tz; }
+    else { tx = camera3d.position.x; ty = camera3d.position.y; tz = camera3d.position.z; lx = leadPos.x; ly = 24; lz = leadPos.z; }
+  }
+
+  // 3Dは毎フレーム瞬間移動させずに減衰追従（ガタつき防止）
+  const sm = camState.smooth3d;
+  if (!sm.init) {
+    sm.x = tx; sm.y = ty; sm.z = tz;
+    sm.tx = lx; sm.ty = ly; sm.tz = lz;
+    sm.init = true;
+  }
+  const KP = 0.14;   // カメラ位置の追従
+  const KL = 0.22;   // 注視点の追従
+  sm.x = lerp(sm.x, tx, KP); sm.y = lerp(sm.y, ty, KP); sm.z = lerp(sm.z, tz, KP);
+  sm.tx = lerp(sm.tx, lx, KL); sm.ty = lerp(sm.ty, ly, KL); sm.tz = lerp(sm.tz, lz, KL);
+
+  camera3d.position.set(sm.x, sm.y, sm.z);
+  camera3d.lookAt(sm.tx, sm.ty, sm.tz);
+}
+
+function init() {
+  cv = el('cv');
+  g = cv.getContext('2d');
+
+  // Three.js 3D初期化
+  initThreeJS();
+
+  // CanvasをUIレイヤーとして前面に
+  cv.style.position = 'fixed';
+  cv.style.top = '0';
+  cv.style.left = '0';
+  cv.style.width = '100%';
+  cv.style.height = '100%';
+  cv.style.zIndex = '10';
+  cv.style.pointerEvents = 'none';
+  if (!g) {
+    const b = el('errbox');
+    b.style.display = 'block';
+    b.textContent = 'Canvas 2D コンテキストが取得できません。ブラウザを変えてみてな。';
+    return;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  el('btnTrain').addEventListener('click', function () {
+    if (!myHorseData) { showRegisterScreen(); return; }
+    toggleTrainingScreen();
+  });
+  el('btnSave').addEventListener('click', saveGame);
+  el('btnLoad').addEventListener('click', loadGame);
+
+  // 登録画面からスタート
+  showRegisterScreen();
+
+  // スタートボタンは馬券パネル側にあるで
+
+  // メインループ
+  requestAnimationFrame(loop);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
